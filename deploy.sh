@@ -102,10 +102,31 @@ fi
 
 # ── 4. Pull Latest Changes from Target Branch ──
 log "📥 [4/9] Mengambil pembaruan kode dari branch: $TARGET_BRANCH..."
+
+# Preserve custom SSL Nginx configuration if present
+SSL_CONFIG_TEMP=""
+if grep -q "ssl_certificate" "$APP_DIR/docker/nginx/default.conf" 2>/dev/null; then
+    SSL_CONFIG_TEMP="/tmp/walhi_nginx_ssl_$(date +%s).conf"
+    cp "$APP_DIR/docker/nginx/default.conf" "$SSL_CONFIG_TEMP"
+fi
+
 git fetch origin "$TARGET_BRANCH"
 CURRENT_HASH=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 git reset --hard "origin/$TARGET_BRANCH"
 NEW_HASH=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+
+# Restore SSL Nginx configuration and ensure SSL volume in docker-compose.prod.yml
+if [ -n "$SSL_CONFIG_TEMP" ] && [ -f "$SSL_CONFIG_TEMP" ]; then
+    cp "$SSL_CONFIG_TEMP" "$APP_DIR/docker/nginx/default.conf"
+    rm -f "$SSL_CONFIG_TEMP"
+    log "🔒 Konfigurasi SSL HTTPS Nginx berhasil dipulihkan."
+fi
+
+if [ -d "/etc/letsencrypt/live" ] && ! grep -q '/etc/letsencrypt:/etc/letsencrypt:ro' docker-compose.prod.yml; then
+    sed -i '/- .\/docker\/nginx\/default.conf/i \      - /etc/letsencrypt:/etc/letsencrypt:ro' docker-compose.prod.yml
+    log "🔒 Volume /etc/letsencrypt berhasil dipulihkan di docker-compose.prod.yml."
+fi
+
 log "✅ Git sync selesai: $CURRENT_HASH ➔ $NEW_HASH"
 
 # ── 5. Rebuild and Restart Application Containers ──
