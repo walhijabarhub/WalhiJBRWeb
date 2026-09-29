@@ -23,7 +23,7 @@ services:
       - LOG_CHANNEL=stack
       - LOG_LEVEL=debug
       - MIGRATE_ON_START=true
-      - SEED_ON_START=true
+      - SEED_ON_START=false
       - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@walhijabar.or.id}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
     volumes:

@@ -28,10 +28,13 @@ Homestead.json
 Homestead.yaml
 Thumbs.db
 
-# SQLite database files
-/database/*.sqlite
-/database/*.sqlite-shm
-/database/*.sqlite-wal
+# SQLite database files (semua direktori & storage)
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+/database/*.sqlite*
+/storage/app/*.sqlite*
+/storage/app/database.sqlite
 
 # Database backups & dumps & deploy archives
 /storage/backups/

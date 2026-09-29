@@ -5,12 +5,14 @@ Dokumen ini berisi panduan langkah-demi-langkah untuk mendeploy dan mengoperasik
 ---
 
 ## 📋 Daftar Isi
-1. [Spesifikasi Server Minimum](#-spesifikasi-server-minimum)
-2. [Langkah Deployment Produksi (Docker Compose)](#-langkah-deployment-produksi-docker-compose)
+1. [Spesifikasi Server Minimum](#-spesifikasi-server-rekomendasi)
+2. [Langkah Deployment Produksi (Docker Compose)](#-langkah-deployment-cepat-turnkey-vps-setup)
 3. [Konfigurasi Domain & SSL (HTTPS)](#-konfigurasi-domain--ssl-https)
 4. [Backup & Restore Database Otomatis](#-backup--restore-database-otomatis)
-5. [Monitoring & Manajemen Log](#-monitoring--manajemen-log)
-6. [Prosedur Pembaruan Aplikasi (CI/CD Deployment)](#-prosedur-pembaruan-aplikasi)
+5. [Monitoring & Manajemen Log](#-monitoring-alokasi-ram--benchmark)
+6. [Otomasi Deployment (CI/CD) GitHub Actions (Branch: production)](#-otomasi-deployment-cicd-github-actions-branch-production)
+7. [Integritas & Keamanan Database VPS (Anti-Reset & Anti-Data Loss)](#-integritas--keamanan-database-vps-anti-reset)
+8. [Panduan Load Testing](#-panduan-load-testing-staging--production)
 
 ---
 
@@ -41,10 +43,10 @@ chmod +x setup-vps.sh
 sudo ./setup-vps.sh
 ```
 
-### 3. Clone Repository ke Direktori Produksi
+### 3. Clone Repository ke Direktori Produksi (Branch: production)
 ```bash
 cd /var/www
-git clone https://github.com/Irs622/walhi_larafel.git walhi_app
+git clone -b production https://github.com/Irs622/walhi_larafel.git walhi_app
 cd /var/www/walhi_app
 ```
 
@@ -151,29 +153,112 @@ docker compose -f docker-compose.prod.yml logs -f app
 
 ---
 
-## 🔄 Prosedur Pembaruan Aplikasi (Update Workflow)
+## 🚀 Otomasi Deployment (CI/CD) GitHub Actions (Branch: production)
 
-Saat ada pembaruan kode di branch `main` GitHub yang ingin di-deploy ke server live:
+Aplikasi web WALHI Jawa Barat telah dikonfigurasi dengan pipeline CI/CD otomatis menggunakan **GitHub Actions** dan **SSH Deploy Key**.
 
-```bash
-# 1. Masuk ke direktori aplikasi
-cd /var/www/walhi_app
+Ketika Anda melakukan `git push origin production`:
+1. **Gatekeeper (Testing & Security):** GitHub Actions secara otomatis menjalankan seluruh 133 tes otomatis (`php artisan test`), kompilasi aset frontend (`npm run build`), dan audit keamanan dependensi (`composer audit`).
+2. **Fail-Closed Protection:** Jika ada satupun tes yang gagal atau ada error sintaks, proses deploy **langsung dibatalkan**. Server live VPS Anda **tidak akan disentuh sama sekali oleh kode rusak**.
+3. **Automated SSH Execution:** Jika seluruh pengujian lulus 100%, GitHub Actions menghubungkan ke VPS melalui SSH dan mengeksekusi skrip rilis aman `./deploy.sh production`.
 
-# 2. Ambil pembaruan kode terbaru
-git pull origin main
-
-# 3. Build ulang image container dan jalankan stack produksi
-docker compose -f docker-compose.prod.yml up -d --build
-
-# 4. Jalankan migrasi database secara eksplisit (Explicit Release Step)
-docker compose -f docker-compose.prod.yml exec app php artisan migrate --force
+```mermaid
+flowchart LR
+    A["Developer<br>(git push origin production)"] --> B["GitHub Actions CI<br>(133 Tests + Security Audit)"]
+    B -->|"Lulus 100%"| C["SSH ke VPS<br>(ed25519 Key)"]
+    B -->|"Gagal"| D["❌ Batal Otomatis<br>(VPS Aman)"]
+    C --> E["deploy.sh<br>(Auto-Backup + Migrate + Zero-Downtime)"]
+    E --> F["✅ Live Website Updated"]
 ```
 
-Alur ini memastikan:
-1. Kode dan aset frontend ter-compile ulang secara deterministik (`npm ci`).
-2. PHP-FPM dan OPcache termuat ulang secara bersih (*fresh bytecodes*).
-3. Skema database termigrasi secara terkontrol tanpa mengganggu restart rutin container.
-4. Cache produksi teroptimasi penuh (`config:cache`, `route:cache`, `view:cache`).
+---
+
+### 🔑 Langkah Setup Kunci SSH & GitHub Repository Secrets (Sekali Saja)
+
+Agar GitHub Actions dapat terhubung ke VPS secara aman tanpa password:
+
+#### 1. Buat Kunci SSH Khusus Deployment di VPS Anda:
+Masuk ke terminal server VPS dan jalankan:
+```bash
+# Generate key pair tipe ed25519 khusus deploy
+ssh-keygen -t ed25519 -C "github-actions-walhi-deploy" -f ~/.ssh/id_ed25519_deploy -N ""
+
+# Tambahkan public key ke daftar authorized_keys VPS:
+cat ~/.ssh/id_ed25519_deploy.pub >> ~/.ssh/authorized_keys
+chmod 600 ~/.ssh/authorized_keys
+chmod 700 ~/.ssh
+
+# Tampilkan Private Key untuk disalin ke GitHub:
+cat ~/.ssh/id_ed25519_deploy
+```
+*(Salin seluruh teks private key yang dimulai dari `-----BEGIN OPENSSH PRIVATE KEY-----` sampai `-----END OPENSSH PRIVATE KEY-----`).*
+
+#### 2. Daftarkan 4 Secret di GitHub Repository:
+Buka repositori GitHub Anda: **Settings** ➔ **Secrets and variables** ➔ **Actions** ➔ **New repository secret**:
+
+| Nama Secret | Nilai / Deskripsi |
+| :--- | :--- |
+| `VPS_HOST` | IP Publik VPS Anda (contoh: `103.175.xxx.xxx` atau domain server) |
+| `VPS_USERNAME` | Username SSH VPS (contoh: `root` atau user dengan akses docker) |
+| `VPS_SSH_KEY` | Seluruh isi private key `~/.ssh/id_ed25519_deploy` yang tadi disalin |
+| `VPS_SSH_PORT` | Port SSH server Anda (default: `22`) |
+
+Setelah 4 secret di atas disimpan, setiap kali Anda melakukan `git push origin production`, server VPS akan otomatis menarik dan menerapkan perubahan secara instan!
+
+---
+
+### 🛠️ Prosedur Manual Pembaruan Aplikasi (Jika Ingin Deploy dari Terminal VPS)
+
+Jika Anda sedang berada di dalam server VPS dan ingin melakukan pembaruan secara manual:
+
+```bash
+# Cukup jalankan satu perintah ini:
+cd /var/www/walhi_app
+./deploy.sh production
+```
+
+Skrip `./deploy.sh` secara otomatis menjalankan:
+1. Validasi pre-flight (ruang disk dan status docker).
+2. **Snapshot backup otomatis database** ke `storage/backups/walhi_predeploy_*.sql.gz`.
+3. Maintenance mode anggun (`php artisan down --secret=...`).
+4. `git pull origin production` secara deterministik.
+5. Rebuild container Docker (`docker compose -f docker-compose.prod.yml up -d --build`).
+6. Migrasi database non-destruktif (`php artisan migrate --force`).
+7. Optimasi cache produksi (`config:cache`, `route:cache`, `view:cache`).
+8. Menonaktifkan maintenance mode (`php artisan up`).
+9. Health check HTTP status ke server lokal.
+
+---
+
+## 🗄️ Integritas & Keamanan Database VPS (Anti-Reset & Anti-Data Loss)
+
+### Mengapa Database di VPS Sempat Berubah/Ter-reset di Masa Lalu?
+Berdasarkan investigasi menyeluruh, data database di VPS sempat ter-reset karena:
+1. **Flag `SEED_ON_START=true`**: Menjalankan `docker compose up` tanpa `-f docker-compose.prod.yml` memicu pembacaan `docker-compose.yml` bawaan lokal yang memuat `SEED_ON_START=true`, sehingga seeder menimpa artikel nyata dengan dummy data seeder.
+2. **Perintah `migrate:fresh`**: Menghapus seluruh tabel dan membuat ulang dari kosong.
+3. **Volume Loss (`docker compose down -v`)**: Flag `-v` menghapus persistent volume database MySQL/SQLite.
+
+### 🛡️ 6 Aturan Emas Perlindungan Database yang Kini Terpasang Permanen:
+1. **Hanya Migrasi Non-Destruktif:** Skrip deployment **hanya** menjalankan `php artisan migrate --force`. Dilarang keras menggunakan `migrate:fresh`, `migrate:refresh`, atau `db:seed`.
+2. **Kunci `SEED_ON_START=false`:** Di seluruh konfigurasi (`docker-compose.prod.yml`, `docker-compose.yml`, dan `.env.production`), seeder otomatis telah dinonaktifkan permanen.
+3. **Otomatis Pre-Deploy Backup:** Setiap deployment otomatis membuat file backup terkompresi `.sql.gz` di folder `storage/backups/`.
+4. **Isolasi Volume Docker:** Volume MySQL `walhi_prod_db` terpisah dari image kode. Memperbarui kode aplikasi tidak pernah menyentuh volume data MySQL.
+5. **Git Ignore Database:** Seluruh format file SQLite (`*.sqlite`, `*.sqlite-shm`, `*.sqlite-wal`) diabaikan oleh git agar tidak tertimpa saat pull.
+6. **Maintenance Mode Graceful:** Pengunjung dicegah menulis data saat proses migrasi beberapa detik berlangsung.
+
+### 🔄 Prosedur Rollback Darurat Database (Disaster Recovery):
+Jika terjadi kesalahan skema dan Anda ingin mengembalikan database ke titik tepat sebelum deploy terakhir:
+
+```bash
+# 1. Cari file backup pra-deploy terbaru di folder backups:
+ls -la /var/www/walhi_app/storage/backups/walhi_predeploy_*
+
+# 2. Restore database MySQL dari file backup:
+gunzip < /var/www/walhi_app/storage/backups/NAMA_FILE_BACKUP.sql.gz | docker exec -i walhi_prod_db mysql -u walhi_user -p$DB_PASSWORD walhi_prod
+
+# 3. Bersihkan cache:
+docker compose -f docker-compose.prod.yml exec app php artisan optimize:clear
+```
 
 ---
 

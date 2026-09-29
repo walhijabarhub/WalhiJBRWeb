@@ -1,61 +1,60 @@
 #!/bin/bash
 # ─────────────────────────────────────────────────────────────
 # WALHI Jawa Barat — Automated Database Backup Script
+# Usage:
+#   ./docker-backup.sh               # Routine backup
+#   ./docker-backup.sh --pre-deploy  # Pre-deployment snapshot
 # ─────────────────────────────────────────────────────────────
 set -e
 
 BACKUP_DIR="${BACKUP_DIR:-./storage/backups}"
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
-mkdir -p "$BACKUP_DIR"
+PREFIX="walhi_prod"
 
-echo "📦 Starting WALHI database backup: $TIMESTAMP"
-
-# Load environment variables from .env if present
-if [ -f .env ]; then
-    export $(grep -E '^(DB_USERNAME|DB_PASSWORD|DB_DATABASE)=' .env | xargs) 2>/dev/null || true
+if [ "${1:-}" = "--pre-deploy" ]; then
+    PREFIX="walhi_predeploy"
+    echo "🛡️ Membuat snapshot database pra-deployment: $TIMESTAMP"
+else
+    echo "📦 Memulai backup rutin database WALHI: $TIMESTAMP"
 fi
+
+mkdir -p "$BACKUP_DIR"
 
 # 1. Check if production MySQL container is running
 if docker ps --format '{{.Names}}' | grep -q "^walhi_prod_db$"; then
-    echo "💾 Backing up MySQL database from walhi_prod_db..."
-    BACKUP_FILE="$BACKUP_DIR/walhi_prod_mysql_$TIMESTAMP.sql.gz"
+    echo "💾 Menjalankan mysqldump dari container walhi_prod_db..."
+    BACKUP_FILE="$BACKUP_DIR/${PREFIX}_mysql_$TIMESTAMP.sql.gz"
     
-    MYSQL_USER="${DB_USERNAME:-walhi_user}"
-    MYSQL_DB="${DB_DATABASE:-walhi_prod}"
-    
-    if [ -n "$DB_PASSWORD" ]; then
-        docker exec -e MYSQL_PWD="$DB_PASSWORD" walhi_prod_db mysqldump -u "$MYSQL_USER" "$MYSQL_DB" | gzip > "$BACKUP_FILE"
-    else
-        docker exec walhi_prod_db mysqldump -u "$MYSQL_USER" "$MYSQL_DB" | gzip > "$BACKUP_FILE"
-    fi
-    echo "✅ MySQL backup saved: $BACKUP_FILE ($(du -h "$BACKUP_FILE" | cut -f1))"
+    docker exec walhi_prod_db sh -c 'exec mysqldump -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE"' | gzip > "$BACKUP_FILE"
+    echo "✅ Backup MySQL berhasil disimpan: $BACKUP_FILE ($(du -h "$BACKUP_FILE" | cut -f1))"
 
 # 2. Check if SQLite database exists
 elif [ -f "./storage/app/database.sqlite" ]; then
-    echo "💾 Backing up SQLite database..."
-    BACKUP_FILE="$BACKUP_DIR/walhi_sqlite_$TIMESTAMP.sqlite.gz"
+    echo "💾 Mem-backup basis data SQLite..."
+    BACKUP_FILE="$BACKUP_DIR/${PREFIX}_sqlite_$TIMESTAMP.sqlite.gz"
     gzip -c "./storage/app/database.sqlite" > "$BACKUP_FILE"
-    echo "✅ SQLite backup saved: $BACKUP_FILE ($(du -h "$BACKUP_FILE" | cut -f1))"
+    echo "✅ Backup SQLite berhasil disimpan: $BACKUP_FILE ($(du -h "$BACKUP_FILE" | cut -f1))"
 
 else
-    echo "⚠️ No running database container or SQLite file found to back up."
+    echo "⚠️ Tidak ada container database MySQL yang berjalan atau file database.sqlite yang ditemukan."
     exit 1
 fi
 
-# 3. Clean up backups older than 30 days
-find "$BACKUP_DIR" -type f -name "walhi_*" -mtime +30 -exec rm {} \;
-echo "🧹 Old backups (>30 days) cleaned up."
+# 3. Clean up routine backups older than 30 days (keep pre-deploy backups for at least 60 days)
+find "$BACKUP_DIR" -type f -name "walhi_prod_*" -mtime +30 -exec rm {} \; 2>/dev/null || true
+find "$BACKUP_DIR" -type f -name "walhi_predeploy_*" -mtime +60 -exec rm {} \; 2>/dev/null || true
+echo "🧹 Pembersihan berkas backup lama selesai."
 
 # 4. Optional: Sync to off-site cloud storage (AWS S3, Cloudflare R2, or Rclone)
-if [ -n "$OFFSITE_BACKUP_BUCKET" ]; then
-    echo "☁️ Uploading backup to off-site storage: $OFFSITE_BACKUP_BUCKET..."
+if [ -n "${OFFSITE_BACKUP_BUCKET:-}" ]; then
+    echo "☁️ Mengunggah backup ke off-site storage: $OFFSITE_BACKUP_BUCKET..."
     if command -v aws >/dev/null 2>&1; then
-        aws s3 cp "$BACKUP_FILE" "s3://$OFFSITE_BACKUP_BUCKET/" --only-show-errors && echo "✅ Off-site S3 sync completed."
+        aws s3 cp "$BACKUP_FILE" "s3://$OFFSITE_BACKUP_BUCKET/" --only-show-errors && echo "✅ Sinkronisasi S3 off-site selesai."
     elif command -v rclone >/dev/null 2>&1; then
-        rclone copy "$BACKUP_FILE" "$OFFSITE_BACKUP_BUCKET" && echo "✅ Off-site Rclone sync completed."
+        rclone copy "$BACKUP_FILE" "$OFFSITE_BACKUP_BUCKET" && echo "✅ Sinkronisasi Rclone off-site selesai."
     else
-        echo "ℹ️ AWS CLI / Rclone not found on host. Backup remains safely stored locally."
+        echo "ℹ️ AWS CLI / Rclone tidak ditemukan di host. Backup tetap tersimpan aman di direktori lokal."
     fi
 fi
 
-echo "🎉 Backup completed successfully!"
+echo "🎉 Backup database selesai dengan sukses!"
