@@ -33,3 +33,4 @@
 <meta property="twitter:image" content="{{ $seoImage }}">
 @endif
 <link rel="canonical" href="{{ url()->current() }}">
+<meta name="google-site-verification" content="google8abf3dd50328ee1e">

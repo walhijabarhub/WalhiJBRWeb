@@ -19,6 +19,12 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', [PublicContentController::class, 'home'])->name('home');
 
+// Google Search Console Verification
+Route::get('/google8abf3dd50328ee1e.html', function () {
+    return response('google-site-verification: google8abf3dd50328ee1e.html', 200)
+        ->header('Content-Type', 'text/html');
+});
+
 // Redirect /dashboard → admin dashboard (Breeze compatibility)
 Route::get('/dashboard', fn () => redirect()->route('admin.dashboard'))
     ->middleware(['auth'])

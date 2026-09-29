@@ -153,5 +153,28 @@ class SEOAndResponsiveTest extends TestCase
             ->assertSee('.topbar-socials', false)
             ->assertSee('.topbar-wrapper', false);
     }
+
+    /**
+     * Test Google Search Console verification HTML endpoint and file.
+     */
+    public function test_google_site_verification_html_endpoint(): void
+    {
+        $response = $this->get('/google8abf3dd50328ee1e.html');
+        $response->assertStatus(200)
+            ->assertSee('google-site-verification: google8abf3dd50328ee1e.html');
+
+        $this->assertFileExists(public_path('google8abf3dd50328ee1e.html'));
+        $this->assertStringContainsString('google-site-verification: google8abf3dd50328ee1e.html', file_get_contents(public_path('google8abf3dd50328ee1e.html')));
+    }
+
+    /**
+     * Test Google site verification meta tag renders on homepage.
+     */
+    public function test_google_site_verification_meta_tag_on_homepage(): void
+    {
+        $response = $this->get('/');
+        $response->assertStatus(200)
+            ->assertSee('<meta name="google-site-verification" content="google8abf3dd50328ee1e">', false);
+    }
 }
 
