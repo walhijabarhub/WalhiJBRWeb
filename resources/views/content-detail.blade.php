@@ -529,6 +529,7 @@
                                                                     <input type="email" name="author_email" placeholder="Email Anda" autocomplete="email" required style="border: 2px solid #1D1D1D; padding: 10px; font-size: 14px; outline: none; background: white; font-family: Montserrat, sans-serif;" />
                                                                 </div>
                                                                 <textarea name="body" rows="3" placeholder="Tulis balasan komentar Anda..." required style="border: 2px solid #1D1D1D; padding: 10px; font-size: 14px; outline: none; background: white; font-family: Montserrat, sans-serif; resize: vertical;"></textarea>
+                                                                <x-turnstile />
                                                                 <button type="submit" style="align-self: flex-start; height: 44px; padding: 0 20px; background: #256D4A; color: white; border: 2px solid #1D1D1D; font-weight: 700; font-size: 12px; text-transform: uppercase; cursor: pointer; font-family: Aspekta, sans-serif;">Kirim Balasan</button>
                                                             </form>
                                                         </div>
@@ -563,6 +564,7 @@
                                                         <textarea name="body" rows="5" required style="border: 2px solid #1D1D1D; padding: 12px; font-size: 15px; outline: none; background: white; font-family: Montserrat, sans-serif; resize: vertical;"></textarea>
                                                     </div>
 
+                                                    <x-turnstile />
                                                     <button type="submit" style="align-self: flex-start; height: 52px; padding: 0 32px; background: #256D4A; color: white; border: 2px solid #1D1D1D; font-weight: 700; font-size: 14px; text-transform: uppercase; cursor: pointer; font-family: Aspekta, sans-serif;" class="btn-action">Kirim Komentar</button>
                                                 </form>
                                             </div>
@@ -589,6 +591,7 @@
 
                                             <input type="text" placeholder="Nama Lengkap" autocomplete="name" style="border: 2px solid #1D1D1D; padding: 12px; font-size: 14px; outline: none; background: white; font-family: Montserrat, sans-serif;" />
                                             <input type="email" name="email" placeholder="Email Anda" autocomplete="email" required style="border: 2px solid #1D1D1D; padding: 12px; font-size: 14px; outline: none; background: white; font-family: Montserrat, sans-serif;" />
+                                            <x-turnstile size="compact" />
                                             <button type="submit" style="height: 48px; background: #1D1D1D; color: #F4F1EA; border: 2px solid #1D1D1D; font-weight: 700; font-size: 13px; text-transform: uppercase; cursor: pointer; font-family: Aspekta, sans-serif;" class="btn-action shadow-[2px_2px_0px_0px_#1D1D1D]">Berlangganan</button>
                                         </form>
                                     </div>

@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Newsletter;
 
+use App\Rules\Turnstile;
 use Illuminate\Foundation\Http\FormRequest;
 
 class SubscribeRequest extends FormRequest
@@ -27,9 +28,9 @@ class SubscribeRequest extends FormRequest
 
     public function rules(): array
     {
-        return [
+        return array_merge([
             'email' => ['required', 'email:rfc', 'max:255'],
-        ];
+        ], Turnstile::rules());
     }
 
     public function messages(): array
@@ -37,6 +38,7 @@ class SubscribeRequest extends FormRequest
         return [
             'email.required' => 'Alamat email wajib diisi.',
             'email.email' => 'Alamat email tidak valid.',
+            Turnstile::FIELD.'.required' => Turnstile::message(),
         ];
     }
 

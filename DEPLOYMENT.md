@@ -148,6 +148,12 @@ Sertifikat lama yang diterbitkan dengan metode *standalone* otomatis diterbitkan
 3. Batasi port 80/443 di firewall VPS hanya untuk rentang IP Cloudflare agar origin tidak bisa diakses langsung. Ingat: port yang dipublish Docker **melewati aturan UFW**; gunakan chain `DOCKER-USER` atau firewall penyedia cloud.
 4. Aturan cache Cloudflare untuk `/build/*`, `/assets/*`, `/storage/*` mengurangi beban VPS secara signifikan.
 
+### CAPTCHA (Cloudflare Turnstile)
+Form komentar dan newsletter mendukung Turnstile (gratis, tidak perlu domain di Cloudflare).
+1. Buka Cloudflare Dashboard → **Turnstile** → *Add site*, isi domain `walhijabar.or.id`, mode *Managed*.
+2. Isi `TURNSTILE_SITE_KEY` dan `TURNSTILE_SECRET_KEY` di `.env` server, lalu jalankan `./deploy.sh production` (atau tunggu deploy berikutnya).
+3. Tanpa kedua key ini, form tetap berjalan seperti biasa (honeypot + rate limit). Bila API verifikasi Cloudflare tidak bisa dihubungi, kiriman ditolak (*fail-closed*).
+
 ### Alamat IP Klien
 Nginx adalah server terdepan; IP klien diteruskan ke PHP sebagai `REMOTE_ADDR`, dan header `X-Forwarded-*` dari klien dibuang. `TRUSTED_PROXIES` dibiarkan kosong kecuali ada reverse proxy/load balancer lain di depan nginx. Bila Docker daemon memakai *userland-proxy* (mis. klien IPv6 tanpa `ipv6: true` di daemon), IP yang terlihat adalah gateway Docker — setel `"userland-proxy": false` di `/etc/docker/daemon.json` — **hanya** bila Docker IPv6 juga dikonfigurasi (`"ipv6": true`, `"ip6tables": true`) atau domain tidak punya record AAAA, karena tanpa itu pengunjung IPv6 tidak bisa terhubung.
 
