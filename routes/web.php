@@ -98,7 +98,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // ──────────────────────────────────────────────────────────────────────
     // ADMIN ROUTES
     // ──────────────────────────────────────────────────────────────────────
-    Route::prefix('admin')->name('admin.')->middleware('throttle:admin-actions')->group(function () {
+    Route::prefix('admin')->name('admin.')->middleware(['two-factor', 'throttle:admin-actions'])->group(function () {
         // Shared routes for both admin and editor
         Route::middleware('role:admin,editor')->group(function () {
             Route::get('/', [AdminController::class, 'index'])->name('dashboard');

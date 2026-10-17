@@ -133,8 +133,6 @@ return [
         'password' => env('EDITOR_PASSWORD'),
     ],
 
-    'team_admin_password' => env('TEAM_ADMIN_PASSWORD'),
-
     /*
     |--------------------------------------------------------------------------
     | Admin Login Path
@@ -146,5 +144,21 @@ return [
     */
 
     'login_path' => trim(env('ADMIN_LOGIN_PATH', 'portal-jabar'), '/'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Two-Factor Authentication
+    |--------------------------------------------------------------------------
+    |
+    | When enforced, admin and editor accounts must enrol in TOTP two-factor
+    | authentication before they can use the admin area.
+    |
+    */
+
+    'two_factor' => [
+        'enforced' => (bool) env('AUTH_2FA_ENFORCED', true),
+    ],
+
+    'force_admin_password_reset' => (bool) env('FORCE_ADMIN_PASSWORD_RESET', false),
 
 ];

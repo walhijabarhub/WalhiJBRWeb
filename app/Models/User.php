@@ -22,6 +22,8 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
+        'two_factor_secret',
+        'two_factor_recovery_codes',
     ];
 
     /**
@@ -34,6 +36,9 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'two_factor_secret' => 'encrypted',
+            'two_factor_recovery_codes' => 'encrypted:array',
+            'two_factor_confirmed_at' => 'datetime',
         ];
     }
 
@@ -92,6 +97,19 @@ class User extends Authenticatable
     /**
      * Explicitly assign a role to this user (safe assignment without mass assignment risk).
      */
+    public function hasTwoFactorEnabled(): bool
+    {
+        return $this->two_factor_secret !== null && $this->two_factor_confirmed_at !== null;
+    }
+
+    /**
+     * Whether this account must use two-factor authentication before reaching the admin area.
+     */
+    public function requiresTwoFactor(): bool
+    {
+        return (bool) config('auth.two_factor.enforced', true) && $this->canManageContent();
+    }
+
     public function assignRole(string|UserRole $role): static
     {
         $this->role = $role instanceof UserRole ? $role->value : $role;

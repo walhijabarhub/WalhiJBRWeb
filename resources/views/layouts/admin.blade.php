@@ -255,6 +255,10 @@ $dateStr = now()->locale('id')->isoFormat('dddd, D MMMM YYYY');
                                 <i data-lucide="settings" class="w-3.5 h-3.5"></i>
                                 <span>Pengaturan Akun</span>
                             </a>
+                            <a href="{{ route('two-factor.show') }}" class="flex items-center gap-2 px-3 py-2 text-[#555] hover:bg-[#f5f5f0] hover:text-[#1D1D1D] transition-colors">
+                                <i data-lucide="shield-check" class="w-3.5 h-3.5"></i>
+                                <span>Keamanan Akun (2FA)</span>
+                            </a>
                             <a href="/" target="_blank" class="flex items-center gap-2 px-3 py-2 text-[#555] hover:bg-[#f5f5f0] hover:text-[#1D1D1D] transition-colors">
                                 <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
                                 <span>Lihat Website</span>

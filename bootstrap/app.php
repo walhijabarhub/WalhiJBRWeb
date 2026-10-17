@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\CheckRole;
+use App\Http\Middleware\EnsureTwoFactorEnabled;
 use App\Http\Middleware\SecurityHeaders;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Application;
@@ -17,7 +18,8 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->redirectTo(
-            guests: '/' . ltrim(env('ADMIN_LOGIN_PATH', 'portal-jabar'), '/'),
+            // Resolved lazily: configuration is not loaded yet when this callback runs.
+            guests: fn () => '/'.config('auth.login_path', 'portal-jabar'),
             users: '/admin',
         );
 
@@ -58,6 +60,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'role' => CheckRole::class,
+            'two-factor' => EnsureTwoFactorEnabled::class,
         ]);
 
         $middleware->web(append: [
