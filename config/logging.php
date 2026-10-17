@@ -73,6 +73,15 @@ return [
             'replace_placeholders' => true,
         ],
 
+        // Audit trail mirror: always records "info" regardless of LOG_LEVEL.
+        'audit' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/audit.log'),
+            'level' => 'info',
+            'days' => env('LOG_AUDIT_DAYS', 365),
+            'replace_placeholders' => true,
+        ],
+
         'slack' => [
             'driver' => 'slack',
             'url' => env('LOG_SLACK_WEBHOOK_URL'),

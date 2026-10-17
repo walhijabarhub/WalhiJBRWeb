@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Models\Content;
+use App\Observers\ContentObserver;
 use App\Rules\SafeUrl;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -49,6 +50,8 @@ class AppServiceProvider extends ServiceProvider
 
         $this->configureRateLimiting();
         $this->configureViewComposers();
+
+        Content::observe(ContentObserver::class);
     }
 
     // ──────────────────────────────────────────────────────────────────────────

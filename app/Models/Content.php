@@ -96,6 +96,43 @@ class Content extends Model
     }
 
     /**
+     * Search title, body and tags.
+     *
+     * Uses the FULLTEXT index on MySQL/MariaDB (boolean mode, every word required,
+     * prefix match) and falls back to LIKE on other drivers or when every word is
+     * shorter than the InnoDB minimum token size.
+     */
+    public function scopeSearch(Builder $query, string $term): Builder
+    {
+        $term = trim($term);
+        if ($term === '') {
+            return $query;
+        }
+
+        // Split on anything that is not a letter or digit, as the InnoDB parser does, so
+        // punctuation never reaches the boolean query ("32/2009" -> "2009").
+        $words = collect(preg_split('/[^\p{L}\p{N}]+/u', $term))
+            ->filter(fn ($word) => mb_strlen($word) >= 3)
+            ->values();
+
+        $like = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $term).'%';
+        $driver = $query->getConnection()->getDriverName();
+
+        if (in_array($driver, ['mysql', 'mariadb'], true) && $words->isNotEmpty()) {
+            $boolean = $words->map(fn ($word) => '+'.$word.'*')->implode(' ');
+
+            return $query->where(fn ($q) => $q
+                ->whereFullText(['title', 'body'], $boolean, ['mode' => 'boolean'])
+                ->orWhere('tags', 'like', $like));
+        }
+
+        return $query->where(fn ($q) => $q
+            ->where('title', 'like', $like)
+            ->orWhere('body', 'like', $like)
+            ->orWhere('tags', 'like', $like));
+    }
+
+    /**
      * Filter only promoted content.
      */
     public function scopePromoted(Builder $query): Builder

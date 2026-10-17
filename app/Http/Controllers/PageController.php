@@ -4,7 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Enums\ContentCategory;
 use App\Models\Content;
+use App\Services\Content\ContentCache;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * Handles static-ish public pages that were previously inline closures
@@ -51,12 +53,7 @@ class PageController extends Controller
         $totalRegulasi = Content::ofCategory(ContentCategory::Regulasi)->published()->count();
 
         if ($search) {
-            $escapedSearch = str_replace(['%', '_'], ['\%', '\_'], $search);
-            $query->where(function ($q) use ($escapedSearch) {
-                $q->where('title', 'like', "%{$escapedSearch}%")
-                    ->orWhere('body', 'like', "%{$escapedSearch}%")
-                    ->orWhere('tags', 'like', "%{$escapedSearch}%");
-            });
+            $query->search((string) $search);
         }
 
         if ($categoryFilter) {
@@ -156,10 +153,10 @@ class PageController extends Controller
 
     public function sitemap()
     {
-        $contents = Content::select('slug', 'updated_at')
+        $contents = Cache::remember(ContentCache::SITEMAP, now()->addHour(), fn () => Content::select('slug', 'updated_at')
             ->published()
             ->orderBy('updated_at', 'desc')
-            ->get();
+            ->get());
 
         return response()
             ->view('sitemap', compact('contents'))

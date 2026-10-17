@@ -43,6 +43,17 @@ Route::post('/konten/{content}/komentar', [CommentController::class, 'store'])
 Route::post('/newsletter/subscribe', [SubscriptionController::class, 'subscribe'])
     ->middleware('throttle:comment')
     ->name('newsletter.subscribe');
+Route::get('/newsletter/konfirmasi/{subscriber}', [SubscriptionController::class, 'confirm'])
+    ->middleware(['signed', 'throttle:6,1'])
+    ->name('newsletter.confirm');
+Route::get('/newsletter/berhenti/{token}', [SubscriptionController::class, 'showUnsubscribe'])
+    ->middleware('throttle:30,1')
+    ->where('token', '[A-Za-z0-9]{64}')
+    ->name('newsletter.unsubscribe');
+Route::post('/newsletter/berhenti/{token}', [SubscriptionController::class, 'unsubscribe'])
+    ->middleware('throttle:30,1')
+    ->where('token', '[A-Za-z0-9]{64}')
+    ->name('newsletter.unsubscribe.store');
 
 // Donation
 Route::post('/donasi/pay', [DonationController::class, 'pay'])
