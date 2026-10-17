@@ -13,3 +13,14 @@ Schedule::command('walhi:donations-reconcile')
     ->everyFifteenMinutes()
     ->withoutOverlapping()
     ->onOneServer();
+
+// Write buffered page/download views to the database.
+Schedule::command('walhi:flush-views')
+    ->everyFiveMinutes()
+    ->withoutOverlapping()
+    ->onOneServer();
+
+// Personal-data retention policy (config/privacy.php).
+Schedule::command('walhi:prune-personal-data')
+    ->monthlyOn(1, '03:00')
+    ->onOneServer();

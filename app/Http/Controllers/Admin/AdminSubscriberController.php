@@ -37,7 +37,8 @@ class AdminSubscriberController extends Controller
             fputcsv($file, ['ID', 'Email', 'Status', 'Tanggal Daftar']);
 
             // Chunk records to prevent memory exhaustion
-            Subscriber::orderBy('id')->chunk(500, function ($subscribers) use ($file) {
+            // Only confirmed, still-subscribed addresses may be mailed (double opt-in).
+            Subscriber::active()->orderBy('id')->chunk(500, function ($subscribers) use ($file) {
                 foreach ($subscribers as $subscriber) {
                     fputcsv($file, [
                         $subscriber->id,
