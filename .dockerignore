@@ -13,3 +13,19 @@ storage/framework/sessions/*
 storage/framework/views/*
 storage/database.sqlite
 *.sqlite-journal
+
+# Not needed at runtime (keeps raw data and docs out of the image)
+tests
+docs
+iqon
+*.md
+!README.md
+data-migasi.xlsx
+database/data
+storage/homepage_screenshot.png
+docker/certbot
+.agents
+.claude
+storage/app/private/*
+storage/app/public/*
+database/*.sqlite

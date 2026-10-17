@@ -1,14 +1,15 @@
 # ─── Stage 1: Node.js Asset Build ───────────────────────────
-FROM node:20-alpine AS frontend
+# Base images are pinned to a minor version so rebuilds are reproducible.
+FROM node:20.19-alpine AS frontend
 WORKDIR /app
 COPY package*.json vite.config.js tailwind.config.js postcss.config.js ./
+RUN npm ci --ignore-scripts
 COPY resources ./resources
 COPY public ./public
-RUN npm install
 RUN npm run build
 
 # ─── Stage 2: PHP Application Container (PHP-FPM) ─────────────
-FROM php:8.4-fpm-alpine
+FROM php:8.4-fpm-alpine3.22
 
 # Install system dependencies & PHP extensions
 RUN apk add --no-cache \
@@ -27,6 +28,11 @@ RUN apk add --no-cache \
     icu-dev \
     sed \
     su-exec \
+    fcgi \
+    && apk add --no-cache --virtual .build-deps $PHPIZE_DEPS \
+    && pecl install redis-6.2.0 \
+    && docker-php-ext-enable redis \
+    && apk del .build-deps \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j$(nproc) \
         pdo \
@@ -42,7 +48,7 @@ RUN apk add --no-cache \
         opcache
 
 # Install Composer
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+COPY --from=composer:2.8 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www/html
 
@@ -59,7 +65,7 @@ COPY --from=frontend /app/public/build ./public/build
 # Complete composer autoloader
 RUN composer dump-autoload --optimize --no-dev
 
-# Copy custom PHP-FPM and OPcache configurations for 4 GB RAM VPS tuning
+# Copy custom PHP-FPM and OPcache configurations (8 GB RAM / 2 vCPU VPS tuning)
 COPY docker/php/zz-docker.conf /usr/local/etc/php-fpm.d/zz-docker.conf
 COPY docker/php/opcache.ini /usr/local/etc/php/conf.d/opcache.ini
 
