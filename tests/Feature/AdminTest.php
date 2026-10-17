@@ -194,10 +194,10 @@ class AdminTest extends TestCase
         $response->assertSee('id="chevron-dukung"', false);
         $response->assertSee('id="chevron-tentang"', false);
 
-        // CSP contains script-src-attr for inline event compatibility
+        // Inline event handlers are blocked; behaviour is bound from resources/js/csp-actions.js
         $response->assertHeader('Content-Security-Policy');
         $csp = $response->headers->get('Content-Security-Policy');
-        $this->assertStringContainsString("script-src-attr 'unsafe-inline'", $csp);
+        $this->assertStringContainsString("script-src-attr 'none'", $csp);
+        $this->assertDoesNotMatchRegularExpression('/\son(click|submit|change|input|mouseover|mouseout)="/', $response->getContent());
     }
 }
-
