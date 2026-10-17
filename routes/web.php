@@ -89,7 +89,7 @@ if (app()->environment('local', 'testing')) {
 // AUTHENTICATED ROUTES (Login Required)
 // ============================================================
 
-Route::middleware(['auth', 'verified'])->group(function () {
+Route::middleware(['auth', 'verified', 'two-factor'])->group(function () {
     // Profile management (Breeze)
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
@@ -98,7 +98,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // ──────────────────────────────────────────────────────────────────────
     // ADMIN ROUTES
     // ──────────────────────────────────────────────────────────────────────
-    Route::prefix('admin')->name('admin.')->middleware(['two-factor', 'throttle:admin-actions'])->group(function () {
+    Route::prefix('admin')->name('admin.')->middleware('throttle:admin-actions')->group(function () {
         // Shared routes for both admin and editor
         Route::middleware('role:admin,editor')->group(function () {
             Route::get('/', [AdminController::class, 'index'])->name('dashboard');
