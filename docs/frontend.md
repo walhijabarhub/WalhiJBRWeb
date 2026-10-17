@@ -12,7 +12,7 @@ The WALHI Jawa Barat frontend follows a distinct **Neo-Brutalist** aesthetic ref
 - **Editorial Punch**: Bold uppercase titles, strong badge callouts, clean grid alignment, and prominent action banners.
 
 ### Core Color Palette Tokens (`brand.*`)
-All colors are configured in [tailwind.config.js](file:///Users/mac/Downloads/walhi_larafel/tailwind.config.js):
+All colors are configured in [tailwind.config.js](../tailwind.config.js):
 
 | Token | Hex Value | Semantic Usage |
 | :--- | :--- | :--- |
@@ -52,11 +52,16 @@ resources/views/
 │   ├── app.blade.php             # Authenticated user fallback layout
 │   ├── guest.blade.php           # Guest authentication container (/portal-jabar)
 │   └── navigation.blade.php      # Top nav bar component
+├── components/
+│   └── turnstile.blade.php       # <x-turnstile /> Cloudflare Turnstile widget (renders nothing when disabled)
+├── newsletter/
+│   └── unsubscribe.blade.php     # Newsletter unsubscribe confirmation
 ├── partials/
 │   ├── seo-meta.blade.php        # Dynamic meta, OpenGraph, and Twitter tags
 │   ├── site-header.blade.php     # Public header, navigation menu, emergency alert
 │   └── site-footer.blade.php     # Organization details, newsletter widget, social links
 ├── admin/                        # Admin views (dashboard, content CRUD, comments, subscribers)
+├── auth/                         # Login, password reset, two-factor-setup, two-factor-challenge
 ├── errors/                       # Branded error pages (403, 404, 419, 500)
 ├── welcome.blade.php             # Homepage with emergency campaign hero & issue grid
 ├── blog.blade.php                # Articles & publications listing
@@ -67,7 +72,7 @@ resources/views/
 ```
 
 ### Layout Conventions
-- **Public Views**: Public pages include [partials/seo-meta.blade.php](file:///Users/mac/Downloads/walhi_larafel/resources/views/partials/seo-meta.blade.php), [partials/site-header.blade.php](file:///Users/mac/Downloads/walhi_larafel/resources/views/partials/site-header.blade.php), and [partials/site-footer.blade.php](file:///Users/mac/Downloads/walhi_larafel/resources/views/partials/site-footer.blade.php).
+- **Public Views**: Public pages include [partials/seo-meta.blade.php](../resources/views/partials/seo-meta.blade.php), [partials/site-header.blade.php](../resources/views/partials/site-header.blade.php), and [partials/site-footer.blade.php](../resources/views/partials/site-footer.blade.php).
 - **Admin Layout**: All views in `admin/` extend `layouts.admin` (`@extends('layouts.admin')`).
   - Includes robots meta tags: `<meta name="robots" content="noindex, nofollow, noarchive, nosnippet">` to shield admin routes from web scrapers and crawlers.
   - Generates dynamic breadcrumbs from route names via `$breadcrumbMap`.
@@ -76,49 +81,78 @@ resources/views/
 
 ## 4. Client-side Interactivity & Alpine.js Conventions
 
-Interactivity is intentionally lightweight and server-driven:
-- **Alpine.js (v3.x)**: Used for declarative state management (mobile drawer toggle, dropdown menus, tab switching, and accordion toggles).
-  - Bootstrapped globally in [resources/js/app.js](file:///Users/mac/Downloads/walhi_larafel/resources/js/app.js) (`window.Alpine = Alpine; Alpine.start();`).
-  - Use `x-data="{ open: false }"` and `x-cloak` to avoid UI flicker during hydration.
-- **Icons**: Lucide icons are used across the administrative dashboard.
-  - Loaded via CDN with Subresource Integrity (SRI) hash and CSP Nonce:
-    ```html
-    <script nonce="{{ Vite::cspNonce() }}" src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js" integrity="..." crossorigin="anonymous"></script>
-    ```
-  - Initialized on DOM ready via `lucide.createIcons()`.
+Interactivity is intentionally lightweight and server-driven.
+
+### Alpine.js (CSP build)
+- The app uses **`@alpinejs/csp`**, not the standard `alpinejs` package. The CSP build never calls `eval()` / `new Function()`, which the Content Security Policy forbids.
+- Bootstrapped in [resources/js/app.js](../resources/js/app.js): `import Alpine from '@alpinejs/csp'`, components registered with `Alpine.data(...)`, then `Alpine.start()`.
+- **Prefer named components** registered with `Alpine.data('name', () => ({ ... }))` in `app.js` (see `heroSlider`) and reference them with `x-data="name"`. Keep inline expressions in templates simple (property reads, assignments, method calls). Complex JavaScript inside attributes does not work under the CSP build; after any Alpine change, check the browser console for errors.
+- Use `x-cloak` to avoid UI flicker during hydration.
+
+### Replacing inline event handlers (`resources/js/csp-actions.js`)
+The CSP sets `script-src-attr 'none'`, so `onclick=`, `onsubmit=`, `onchange=`, `onmouseover=` etc. **do not run**. Use the delegated data attributes instead:
+
+| Attribute | Behaviour |
+| :--- | :--- |
+| `data-on-click="fnName"` | Calls `window.fnName(...args, element, event)` on click |
+| `data-on-change="fnName"` / `data-on-input="fnName"` | Same, for `change` / `input` |
+| `data-args='[1, "two"]'` | Optional JSON array of leading arguments |
+| `data-confirm="Yakin?"` | On a `<form>`: asks for confirmation before submitting |
+| `data-hover-style="..."` / `data-rest-style="..."` | Inline styles applied on mouseenter / restored on mouseleave |
+| `data-toggle-target="#id"` | Toggles the target between `display:none` and `block` |
+| `data-submit-closest-form` | Prevents default and submits the enclosing form |
+
+Only named global functions are called; no strings are evaluated. Functions used this way must be defined on `window` in a nonced script or in a Vite entry.
+
+### Icons
+- Lucide icons are used across the administrative dashboard, loaded from a version-pinned CDN path with SRI and the CSP nonce:
+  ```html
+  <script nonce="{{ Vite::cspNonce() }}" src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js" integrity="sha384-..." crossorigin="anonymous"></script>
+  ```
+- Public pages prefer inline SVG.
+
+### CAPTCHA component
+`<x-turnstile />` (optional `size="compact"`) renders the Cloudflare Turnstile widget and its script once per page, only when both Turnstile keys are configured. Place it inside forms that use `Turnstile::rules()` (comments, newsletter). The validation error is rendered by the component.
 
 ---
 
-## 5. Security & CSP Nonce Discipline
+## 5. Security & CSP Discipline
 
-Under SEC-005, WALHI Jawa Barat enforces Content Security Policy (CSP) headers with a per-request cryptographically secure nonce generated in `SecurityHeaders` middleware:
+`SecurityHeaders` middleware sends a per-request nonce and this policy (abridged):
 
-1. **Mandatory Nonce on All `<script>` Tags**:
-   Every `<script>` tag in Blade templates must include the dynamic nonce:
-   ```blade
-   <script nonce="{{ Vite::cspNonce() }}">
-       // Inline script logic
-   </script>
-   ```
-2. **Never Inject Raw External Scripts Without Integrity or Nonce**:
-   Third-party CDN scripts must include `nonce="{{ Vite::cspNonce() }}"` and an SRI `integrity` attribute.
-3. **Phase B Roadmap (Technical Debt)**:
-   Avoid creating new inline HTML event handlers (`onclick="..."`, `onchange="..."`). Instead:
-   - Prefer Alpine.js directives (`x-on:click="..."` or `@click="..."`).
-   - Or attach event listeners in nonced scripts via `document.addEventListener(...)`.
+```text
+script-src 'self' 'nonce-…' https://app(.sandbox).midtrans.com/snap/
+           https://cdn.jsdelivr.net/npm/quill@2.0.2/ https://cdn.jsdelivr.net/npm/chart.js@4.4.7/
+           https://unpkg.com/lucide@0.460.0/   [+ https://challenges.cloudflare.com when Turnstile is on]
+script-src-attr 'none'
+style-src 'self' 'unsafe-inline' fonts + quill css
+img-src 'self' data: blob: https:
+frame-src 'self' midtrans [+ challenges.cloudflare.com]
+object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'
+```
+
+Rules:
+1. **Every `<script>` tag must carry the nonce:** `<script nonce="{{ Vite::cspNonce() }}">`.
+2. **No inline event handlers** (`on*=` attributes). Use Alpine directives or the `data-on-*` attributes above.
+3. **Third-party scripts** must be added to the CSP at an exact, versioned path and loaded with an SRI `integrity` attribute. Do not allow whole CDN hosts.
+4. **No `javascript:` URLs** in `href`. Links coming from content go through `App\Rules\SafeUrl`.
+5. Never assign untrusted HTML to `innerHTML`. In admin editors, load bodies with `quill.clipboard.dangerouslyPasteHTML()` from server-sanitised data.
+6. `tests/Feature/ContentSecurityHardeningTest.php` asserts the CSP has no `unsafe-inline`/`unsafe-eval` for scripts and that key public pages render no `on*="` handlers. It does not cover every admin view, so check the browser console on pages you change.
 
 ---
 
 ## 6. Asset Build Pipeline (Vite)
 
-- **Config**: [vite.config.js](file:///Users/mac/Downloads/walhi_larafel/vite.config.js) uses `laravel-vite-plugin` with entrypoints:
+- **Config**: [vite.config.js](../vite.config.js) uses `laravel-vite-plugin` with entrypoints:
   - `resources/css/app.css`
-  - `resources/js/app.js`
+  - `resources/js/app.js` (imports `csp-actions.js`)
+  - `resources/js/csp-actions.js` (also usable on its own, e.g. by admin pages)
 - **Commands**:
   ```bash
   npm run dev     # Starts local Vite development server with Hot Module Replacement (HMR)
   npm run build   # Compiles and minifies assets to public/build/ for production
   ```
+- Production images build assets inside the Dockerfile (`node:20` stage, `npm ci`). Feature tests call `$this->withoutVite()`, so tests do not need a built manifest.
 - **In Blade**:
   ```blade
   @vite(['resources/css/app.css', 'resources/js/app.js'])

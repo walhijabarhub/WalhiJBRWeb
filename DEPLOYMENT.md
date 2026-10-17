@@ -11,8 +11,10 @@ Dokumen ini berisi panduan langkah-demi-langkah untuk mendeploy dan mengoperasik
 4. [Backup & Restore (Database + File Unggahan)](#-backup--restore-database--file-unggahan)
 5. [Monitoring & Manajemen Log](#-monitoring-alokasi-ram--benchmark)
 6. [Otomasi Deployment (CI/CD) GitHub Actions (Branch: production)](#-otomasi-deployment-cicd-github-actions-branch-production)
-7. [Integritas & Keamanan Database VPS (Anti-Reset & Anti-Data Loss)](#-integritas--keamanan-database-vps-anti-reset)
+7. [Integritas & Keamanan Database VPS (Anti-Reset & Anti-Data Loss)](#-integritas--keamanan-database-vps-anti-reset--anti-data-loss)
 8. [Panduan Load Testing](#-panduan-load-testing-staging--production)
+
+> Server live saat ini: domain `walhijabar.or.id`, direktori `/var/www/walhi_app`, backup di `/var/backups/walhi`. Prosedur harian (deploy ulang, rollback, reset 2FA, SMTP, dll.) ada di [docs/operations.md](docs/operations.md); referensi semua variabel `.env` di [docs/configuration.md](docs/configuration.md).
 
 ---
 
@@ -58,7 +60,7 @@ nano .env
 ```
 
 **Konfigurasi Kunci yang Wajib Diisi:**
-- `APP_URL=https://walhijabar.co.id`
+- `APP_URL=https://walhijabar.or.id`
 - `DB_PASSWORD` & `DB_ROOT_PASSWORD` (Gunakan password acak kuat minimal 24 karakter — **DILARANG** menggunakan string default contoh)
 - `MIDTRANS_SERVER_KEY` & `MIDTRANS_CLIENT_KEY` (Kunci produksi akun Midtrans resmi)
 - `ADMIN_PASSWORD` (Password akun Super Admin)
@@ -94,7 +96,7 @@ Versi ini menambah Redis, worker, scheduler dan template nginx. Lakukan **sebelu
 1. Tambahkan ke `.env` server:
    ```bash
    REDIS_PASSWORD=$(openssl rand -hex 24)   # isi nilai hasil perintah ini
-   NGINX_SERVER_NAME=walhijabar.co.id        # domain sertifikat yang sudah ada
+   NGINX_SERVER_NAME=walhijabar.or.id        # domain sertifikat yang sudah ada
    NGINX_CONF=https                          # karena sertifikat sudah terpasang
    SESSION_DRIVER=redis
    CACHE_STORE=redis
@@ -102,7 +104,7 @@ Versi ini menambah Redis, worker, scheduler dan template nginx. Lakukan **sebelu
    ```
    Pastikan `APP_KEY` sudah terisi (wajib).
 2. Salin dokumen privat dari container lama (lihat peringatan di bawah).
-3. Deploy, lalu jalankan `sudo ./setup-ssl.sh walhijabar.co.id` sekali untuk memindahkan perpanjangan sertifikat ke metode webroot.
+3. Deploy, lalu jalankan `sudo ./setup-ssl.sh walhijabar.or.id` sekali untuk memindahkan perpanjangan sertifikat ke metode webroot.
 4. Periksa `docker compose -f docker-compose.prod.yml ps` — semua container harus `healthy`/`running`.
 
 ### Penyimpanan Persisten
@@ -227,7 +229,7 @@ docker compose -f docker-compose.prod.yml logs -f app
 Saat ada push ke `production`, workflow `deploy.yml` menjalankan:
 1. **Gatekeeper:** seluruh test (`php artisan test`) dan `composer audit`. Gagal = tidak ada yang dideploy.
 2. **Build image sekali di CI** dan push ke GHCR sebagai `ghcr.io/walhijabarhub/walhijbrweb:<12-char-commit-sha>`. VPS tidak lagi membangun image.
-3. **Deploy via SSH** (host key diverifikasi lewat `fingerprint`, environment `production` dengan reviewer) yang memanggil `./deploy.sh production <sha>` dari commit yang sama.
+3. **Deploy via SSH** (host key diverifikasi lewat `fingerprint`, environment `production`) yang memanggil `./deploy.sh production <sha>` dari commit yang sama.
 
 Workflow `ci.yml` menjalankan test di SQLite **dan MySQL 8.0**, build aset, build image, dan validasi `docker-compose.prod.yml`. Workflow `security.yml` menjalankan gitleaks (seluruh riwayat), `composer audit`, dan `npm audit`. Semua action dikunci ke commit SHA; Dependabot memperbarui dependensi tiap minggu.
 
@@ -249,7 +251,7 @@ flowchart LR
 4. Maintenance mode lewat Redis (bertahan meski container dibuat ulang). Secret bypass acak per deploy.
 5. **Migrasi dengan image baru sebelum swap** (`docker compose run --rm app php artisan migrate --force`). Bila gagal, versi lama tetap melayani.
 6. Swap container + restart nginx (template dirender ulang).
-7. Health check (`/up` lewat nginx). Bila gagal → **rollback otomatis** ke tag terakhir yang sehat (`.deploy/last_good_tag`). Catatan: migrasi yang sudah jalan tidak dibatalkan otomatis; gunakan `docker-restore.sh` dengan snapshot pra-deploy bila perlu.
+7. Health check (`/up` lewat nginx). Bila gagal → **rollback otomatis** ke image, tag, dan commit terakhir yang sehat (`.deploy/last_good`). Catatan: migrasi yang sudah jalan tidak dibatalkan otomatis; gunakan `docker-restore.sh` dengan snapshot pra-deploy bila perlu.
 
 ### 🔑 Setup sekali
 1. **SSH key deploy** di VPS:
@@ -267,7 +269,7 @@ flowchart LR
    | `VPS_SSH_KEY` | Isi private key `~/.ssh/id_ed25519_deploy` |
    | `VPS_SSH_PORT` | Port SSH (default 22) |
    | `VPS_SSH_FINGERPRINT` | Fingerprint host key **ECDSA**, format `SHA256:...` (tipe kunci yang dipakai klien SSH di Actions) |
-3. **Environment `production`** (Settings → Environments): tambahkan *required reviewers* agar deploy perlu persetujuan.
+3. **Environment `production`** (Settings → Environments): opsional, tambahkan *required reviewers* agar deploy perlu persetujuan (butuh akses admin repo). Saat ini deploy berjalan otomatis tanpa persetujuan.
 4. **Akses image GHCR di VPS:** otomatis. Job deploy login ke `ghcr.io` memakai `GITHUB_TOKEN` yang hanya berlaku selama job berjalan, lalu logout lagi, sehingga package boleh tetap private. Untuk deploy manual dengan image dari GHCR, login sendiri sementara dengan token `read:packages`.
 5. Pastikan **GitHub Actions aktif** untuk akun/repo (masalah billing pada akun membuat semua job gagal start).
 
@@ -288,26 +290,29 @@ Berdasarkan investigasi menyeluruh, data database di VPS sempat ter-reset karena
 2. **Perintah `migrate:fresh`**: Menghapus seluruh tabel dan membuat ulang dari kosong.
 3. **Volume Loss (`docker compose down -v`)**: Flag `-v` menghapus persistent volume database MySQL/SQLite.
 
-### 🛡️ 6 Aturan Emas Perlindungan Database yang Kini Terpasang Permanen:
-1. **Hanya Migrasi Non-Destruktif:** Skrip deployment **hanya** menjalankan `php artisan migrate --force`. Dilarang keras menggunakan `migrate:fresh`, `migrate:refresh`, atau `db:seed`.
-2. **Kunci `SEED_ON_START=false`:** Di seluruh konfigurasi (`docker-compose.prod.yml`, `docker-compose.yml`, dan `.env.production`), seeder otomatis telah dinonaktifkan permanen.
-3. **Otomatis Pre-Deploy Backup:** Setiap deployment otomatis membuat file backup terkompresi `.sql.gz` di folder `storage/backups/`.
-4. **Isolasi Volume Docker:** Volume MySQL `walhi_prod_db` terpisah dari image kode. Memperbarui kode aplikasi tidak pernah menyentuh volume data MySQL.
-5. **Git Ignore Database:** Seluruh format file SQLite (`*.sqlite`, `*.sqlite-shm`, `*.sqlite-wal`) diabaikan oleh git agar tidak tertimpa saat pull.
-6. **Maintenance Mode Graceful:** Pengunjung dicegah menulis data saat proses migrasi beberapa detik berlangsung.
+### 🛡️ Aturan Perlindungan Database yang Kini Terpasang:
+1. **Hanya Migrasi Non-Destruktif:** `deploy.sh` **hanya** menjalankan `php artisan migrate --force`. Dilarang keras `migrate:fresh`, `migrate:refresh`, atau `db:seed` di produksi.
+2. **`SEED_ON_START=false`** di `docker-compose.prod.yml` dan `.env.production.example`. Selalu jalankan perintah compose produksi dengan `-f docker-compose.prod.yml`.
+3. **Backup pra-deploy otomatis:** setiap deploy membuat snapshot `walhi_predeploy_*` (DB + file) di `BACKUP_DIR` (default `/var/backups/walhi`) dan membatalkan deploy bila backup gagal.
+4. **Isolasi Volume Docker:** volume MySQL `walhi_prod_db` terpisah dari image. Jangan pernah menjalankan `docker compose down -v` di server.
+5. **Git Ignore Database:** file SQLite (`*.sqlite`, `*.sqlite-shm`, `*.sqlite-wal`) diabaikan git.
+6. **Maintenance mode lewat Redis** selama migrasi, sehingga pengunjung tidak menulis data setengah jalan.
 
 ### 🔄 Prosedur Rollback Darurat Database (Disaster Recovery):
-Jika terjadi kesalahan skema dan Anda ingin mengembalikan database ke titik tepat sebelum deploy terakhir:
+Jika migrasi atau data rusak dan database perlu dikembalikan ke titik sebelum deploy terakhir:
 
 ```bash
-# 1. Cari file backup pra-deploy terbaru di folder backups:
-ls -la /var/www/walhi_app/storage/backups/walhi_predeploy_*
+cd /var/www/walhi_app
 
-# 2. Restore database MySQL dari file backup:
-gunzip < /var/www/walhi_app/storage/backups/NAMA_FILE_BACKUP.sql.gz | docker exec -i walhi_prod_db mysql -u walhi_user -p$DB_PASSWORD walhi_prod
+# 1. Cari snapshot pra-deploy terbaru
+ls -lt /var/backups/walhi/walhi_predeploy_*
 
-# 3. Bersihkan cache:
-docker compose -f docker-compose.prod.yml exec app php artisan optimize:clear
+# 2. Pulihkan (meminta konfirmasi, mengaktifkan maintenance mode otomatis)
+./docker-restore.sh /var/backups/walhi/walhi_predeploy_mysql_YYYYMMDD_HHMMSS.sql.gz \
+                    /var/backups/walhi/walhi_predeploy_files_YYYYMMDD_HHMMSS.tar.gz
+
+# 3. Bila kode juga perlu kembali ke versi sebelumnya, deploy ulang commit lama
+#    (lihat "Rollback kode" di docs/operations.md)
 ```
 
 ---
@@ -319,12 +324,12 @@ Sebelum promosi traffic masif, lakukan pengujian konkurensi bertahap dari workst
 ```bash
 # Menggunakan ApacheBench (ab) atau k6 / wrk
 # Uji coba 100 request dengan 10 concurrent users:
-ab -n 100 -c 10 https://walhijabar.co.id/
+ab -n 100 -c 10 https://walhijabar.or.id/
 
 # Uji coba 500 request dengan 25 concurrent users:
-ab -n 500 -c 25 https://walhijabar.co.id/
+ab -n 500 -c 25 https://walhijabar.or.id/
 
 # Uji coba 1000 request dengan 50 concurrent users:
-ab -n 1000 -c 50 https://walhijabar.co.id/
+ab -n 1000 -c 50 https://walhijabar.or.id/
 ```
-Amati keluaran `docker stats`. Jika penggunaan RAM per PHP-FPM worker stabil dan antrean request rendah, nilai `pm.max_children` di `docker/php/zz-docker.conf` dapat dinaikkan bertahap (8 ➔ 10 ➔ 12) berdasarkan data aktual.
+Amati keluaran `docker stats`. Jika penggunaan RAM per PHP-FPM worker stabil dan antrean request rendah, nilai `pm.max_children` di `docker/php/zz-docker.conf` (saat ini 18) dapat disesuaikan bertahap berdasarkan data aktual, dengan tetap memperhatikan limit memori container `app`.

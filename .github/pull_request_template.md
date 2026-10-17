@@ -28,8 +28,11 @@ Fixes #
 ## 📋 Checklist Kepatuhan Aturan PR
 <!-- Pastikan Anda telah memenuhi seluruh ketentuan berikut sebelum meminta review -->
 - [ ] **Fokus Tunggal**: PR ini hanya membahas 1 topik/fitur (*tidak mencampur banyak hal yang tidak berkaitan*).
-- [ ] **Bebas Konflik**: Branch ini sudah up-to-date dengan `main` terbaru dan tidak ada *merge conflicts*.
+- [ ] **Target Branch**: PR ini diarahkan ke `production` (bukan `main` / `prod`). Merge = langsung deploy ke server live.
+- [ ] **Bebas Konflik**: Branch ini sudah up-to-date dengan `production` terbaru dan tidak ada *merge conflicts*.
 - [ ] **Bebas Kredensial**: Tidak ada file `.env`, password, token, atau data sensitif yang terkomit.
 - [ ] **Standar Kode**: Kode mematuhi standar PSR-12 dan sistem desain Neo-Brutalisme WALHI.
-- [ ] **Pengujian Lokal**: Seluruh pengujian lokal telah lulus tanpa error di browser console maupun Laravel logs.
+- [ ] **Pengujian Lokal**: `php artisan test` lulus, dan tidak ada error di browser console (termasuk pelanggaran CSP) maupun Laravel logs.
+- [ ] **Migrasi Aman**: Migrasi (bila ada) aman dijalankan saat versi lama masih melayani, dan tidak menghapus data.
+- [ ] **Dokumentasi**: Dokumen terkait (`docs/`, `CHANGELOG.md`, `.env.production.example`) ikut diperbarui bila perilaku atau konfigurasi berubah.
 - [ ] **Review**: Siap untuk direview oleh minimal 1 rekan tim / maintainer.

@@ -7,12 +7,12 @@
 # web server never has to be stopped and automatic renewal keeps working.
 #
 # Usage: sudo ./setup-ssl.sh [domain] [email]
-#   domain  default: walhijabar.co.id (certificate also covers www.<domain>)
+#   domain  default: walhijabar.or.id (certificate also covers www.<domain>)
 #   email   default: $CERTBOT_EMAIL or the maintainer address below
 # ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
-DOMAIN="${1:-walhijabar.co.id}"
+DOMAIN="${1:-walhijabar.or.id}"
 EMAIL="${2:-${CERTBOT_EMAIL:-irsalshydiq@gmail.com}}"
 APP_DIR="${APP_DIR:-/var/www/walhi_app}"
 COMPOSE="docker compose -f $APP_DIR/docker-compose.prod.yml"

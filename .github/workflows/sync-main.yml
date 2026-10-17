@@ -1,0 +1,33 @@
+name: Sync main with production
+
+# `production` is the source of truth; `main` is a mirror kept identical to it.
+# Every push to production fast-forwards main. If main ever gains commits that are
+# not in production the push is rejected (no force push) and this job fails, so the
+# divergence is noticed instead of silently overwritten.
+on:
+  push:
+    branches:
+      - production
+  workflow_dispatch:
+
+concurrency:
+  group: sync-main
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  fast-forward-main:
+    name: Fast-forward main to production
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout production
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: production
+          fetch-depth: 0
+
+      - name: Push production to main (fast-forward only)
+        run: git push origin "HEAD:refs/heads/main"

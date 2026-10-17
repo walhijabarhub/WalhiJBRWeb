@@ -33,23 +33,27 @@ Mengusung gaya desain **Neo-Brutalisme Hijau Ekologis**, platform ini memberikan
 ## ✨ Fitur Utama
 
 - 📰 **Portal Publikasi & Advokasi:**
-  - Artikel Berita & Blog Lingkungan
+  - Artikel Berita & Blog Lingkungan (pencarian FULLTEXT di MySQL)
   - Siaran Pers Resmi & Rilis Sikap Organisasi
-  - Infografis Edukasi Ekologi
-  - Laporan Tahunan & Dokumen Regulasi Lingkungan
+  - Infografis, Kertas Posisi & Catatan Kritis
+  - Laporan Tahunan & Database Regulasi Lingkungan (dokumen diunduh lewat endpoint terotorisasi)
 - 💚 **Gerakan Dukungan & Donasi:**
-  - Modul Donasi Terintegrasi dengan Nominal Cepat
-  - Simulasi & Integrasi Payment Gateway
+  - Donasi online lewat Midtrans Snap (status dikonfirmasi ke Status API Midtrans, rekonsiliasi otomatis tiap 15 menit)
+  - Halaman Transparansi Dana
 - 👥 **Profil Organisasi & Jaringan:**
-  - Direktori 29 Lembaga Anggota di 13 Kabupaten/Kota Jawa Barat
-  - Visi, Misi, 10 Nilai Perjuangan, dan 6 Program Strategis
+  - Direktori Lembaga Anggota di Kabupaten/Kota Jawa Barat
+  - Visi, Misi, Nilai Perjuangan, dan Program Strategis
   - Garis Sejarah Gerakan sejak 1980 & Struktur Kepengurusan
-- 🎪 **Pekan Rakyat Lingkungan Hidup:**
-  - Manajemen kampanye dan festival rakyat
+- 🎪 **Pekan Rakyat Lingkungan Hidup & Kampanye Darurat**
+- 💬 **Interaksi Publik:**
+  - Komentar artikel dengan moderasi, honeypot, rate limit, dan CAPTCHA Cloudflare Turnstile (opsional)
+  - Newsletter dengan *double opt-in* dan tautan berhenti berlangganan
+  - Halaman Pengaduan, Kontak & Kebijakan Privasi
 - 🔐 **Backoffice CMS & Panel Admin:**
-  - Manajemen Konten (Tambah, Edit, Publish/Archive)
-  - Log Audit Keamanan (*Audit Trail*)
-  - Manajemen Donasi Masuk & Pengaturan Kontak Global
+  - Manajemen Konten per kategori (draft → published → archived), editor Quill
+  - Role `admin` / `editor` dengan **2FA (TOTP) wajib**
+  - Moderasi komentar, ekspor subscriber (CSV aman dari formula injection)
+  - Jejak audit (*audit trail*) di tabel `audit_logs` + file `audit.log`
 
 ---
 
@@ -64,7 +68,7 @@ Metode ini paling praktis karena seluruh dependensi (PHP 8.4, Composer, Node.js 
 1. **Clone repository dan masuk ke direktori:**
    ```bash
    git clone https://github.com/walhijabarhub/WalhiJBRWeb.git
-   cd walhi_larafel
+   cd WalhiJBRWeb
    ```
 
 2. **Jalankan container:**
@@ -72,12 +76,17 @@ Metode ini paling praktis karena seluruh dependensi (PHP 8.4, Composer, Node.js 
    docker compose up -d --build
    ```
 
-3. **Buka aplikasi di browser:**
+3. **Buat akun admin lokal** (password diminta lewat prompt tersembunyi):
+   ```bash
+   docker compose exec app php artisan walhi:create-admin --name="Admin Lokal" --email=admin@walhijabar.or.id
+   ```
+
+4. **Buka aplikasi di browser:**
    - 🌐 **Website Publik:** [http://localhost:8000](http://localhost:8000)
    - 🔑 **Login Admin:** [http://localhost:8000/portal-jabar](http://localhost:8000/portal-jabar) *(dapat disesuaikan via `ADMIN_LOGIN_PATH` di `.env`)*
-   - 📊 **Panel Admin:** [http://localhost:8000/admin](http://localhost:8000/admin) *(memerlukan login)*
+   - 📊 **Panel Admin:** [http://localhost:8000/admin](http://localhost:8000/admin) *(memerlukan login + 2FA)*
 
-4. **Perintah Docker yang Berguna:**
+5. **Perintah Docker yang Berguna:**
    ```bash
    # Melihat log container secara real-time
    docker compose logs -f
@@ -88,6 +97,8 @@ Metode ini paling praktis karena seluruh dependensi (PHP 8.4, Composer, Node.js 
    # Menjalankan perintah artisan di dalam container
    docker compose exec app php artisan migrate:status
    ```
+
+> `docker-compose.yml` hanya untuk pengembangan lokal. Server produksi memakai `docker-compose.prod.yml`; lihat [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ---
 
@@ -111,24 +122,22 @@ Jika Anda ingin menjalankan langsung di lingkungan host (memerlukan PHP 8.3+ / 8
    ```bash
    touch database/database.sqlite
    php artisan migrate --seed
+   php artisan walhi:create-admin
    ```
 
-4. **Jalankan server pengembangan:**
+4. **Jalankan server pengembangan** (server, queue worker, log & Vite sekaligus):
    ```bash
-   npm run build
-   php artisan serve
+   composer run dev
    ```
+   Atau secara terpisah: `npm run build` lalu `php artisan serve`. Email (konfirmasi newsletter, reset password) masuk ke `storage/logs/laravel.log` karena `MAIL_MAILER=log`.
 
 ---
 
-## 🔑 Kredensial Pengujian Lokal (Development Only)
+## 🔑 Akun Admin Lokal
 
-> ⚠️ **Penting:** Kredensial di bawah ini adalah data *dummy* yang **hanya dibuat saat proses seeding di komputer lokal (*development*)**. Pada server produksi (*live*), seluruh akun wajib menggunakan email dan password unik yang dikonfigurasi melalui variabel lingkungan `.env`.
+Tidak ada lagi password bawaan. Seeder `AdminUserSeeder` memakai `ADMIN_EMAIL`/`ADMIN_PASSWORD` dari `.env`; bila `ADMIN_PASSWORD` kosong, akun dibuat dengan password acak yang **tidak ditampilkan** dan tautan reset dikirim ke email (lokal: tercatat di log). Cara termudah membuat akun lokal adalah `php artisan walhi:create-admin` seperti di atas.
 
-| Role | Email Dummy (Lokal) | Password Default (Lokal) |
-| :--- | :--- | :--- |
-| **Super Admin** | `admin@walhi-jabar.org` | `admin123` |
-| **Staff / Editor** | `editor@walhi-jabar.org` | `editor123` |
+Login pertama akan langsung diarahkan ke halaman aktivasi **2FA** (pindai QR dengan Google Authenticator/Aegis/1Password, simpan *recovery codes*). Untuk pengembangan lokal saja, 2FA bisa dimatikan dengan `AUTH_2FA_ENFORCED=false` di `.env`. Panduan lengkap: [docs/admin-guide.md](docs/admin-guide.md).
 
 ---
 
@@ -138,17 +147,42 @@ Untuk penjelasan mendalam mengenai pola arsitektur, diagram aliran data, dan ske
 👉 **[Dokumen Arsitektur Lengkap (ARCHITECTURE.md)](ARCHITECTURE.md)**
 
 ```
-walhi_larafel/
-├── app/               # Controllers, Models, Services, Policies
-├── database/          # Migrations & Seeders
+WalhiJBRWeb/
+├── app/                   # Controllers, Models, Services, Policies, Rules, Commands
+├── database/              # Migrations & Seeders
 ├── resources/
-│   ├── css/           # Tailwind CSS styling
-│   ├── js/            # Alpine.js script logic
-│   └── views/         # Blade templates & components
-├── public/            # Static assets (images, icons, build)
-├── docker-entrypoint.sh # Skrip boot otomatis container
-└── docker-compose.yml # Konfigurasi Docker multi-container
+│   ├── css/               # Tailwind CSS styling
+│   ├── js/                # Alpine.js (build CSP) & csp-actions.js
+│   └── views/             # Blade templates & components
+├── public/                # Static assets (images, icons, build)
+├── docker/                # Konfigurasi nginx, PHP-FPM, MySQL untuk container
+├── docs/                  # Dokumentasi teknis & operasional
+├── deploy.sh              # Deploy produksi (dipanggil GitHub Actions)
+├── docker-backup.sh       # Backup DB + file
+├── docker-restore.sh      # Restore dari backup
+├── docker-compose.yml     # Stack pengembangan lokal
+└── docker-compose.prod.yml # Stack produksi (app, worker, scheduler, db, redis, nginx)
 ```
+
+---
+
+## 📚 Peta Dokumentasi
+
+| Dokumen | Isi |
+| :--- | :--- |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | Arsitektur sistem, alur request, komponen produksi |
+| [DEPLOYMENT.md](DEPLOYMENT.md) | Setup VPS, SSL, CI/CD, backup & restore |
+| [docs/operations.md](docs/operations.md) | Runbook operasional harian & penanganan insiden |
+| [docs/configuration.md](docs/configuration.md) | Referensi seluruh variabel `.env` |
+| [docs/admin-guide.md](docs/admin-guide.md) | Panduan pengelola konten: login, 2FA, konten, komentar |
+| [docs/domain-rules.md](docs/domain-rules.md) | Aturan bisnis: konten, dokumen, donasi, newsletter, privasi |
+| [docs/database.md](docs/database.md) | Skema tabel & relasi |
+| [docs/frontend.md](docs/frontend.md) | Sistem desain, Blade, Alpine, aturan CSP |
+| [docs/testing.md](docs/testing.md) | Test suite & CI |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Alur branch (`production` = patokan), commit, PR |
+| [SECURITY.md](SECURITY.md) | Pelaporan celah keamanan & kontrol keamanan |
+| [AGENTS.md](AGENTS.md) | Panduan untuk AI coding agent |
+| [CHANGELOG.md](CHANGELOG.md) | Riwayat perubahan |
 
 ---
 
@@ -156,7 +190,7 @@ walhi_larafel/
 
 Kami menyambut kontribusi dari seluruh anggota tim dan komunitas! Sebelum mulai berkontribusi, harap membaca panduan berikut:
 
-- 📋 **[Panduan Kontribusi (CONTRIBUTING.md)](CONTRIBUTING.md)**: Alur kerja git branch, konvensi commit pesan, dan langkah Pull Request.
+- 📋 **[Panduan Kontribusi (CONTRIBUTING.md)](CONTRIBUTING.md)**: Alur kerja git branch, konvensi commit pesan, dan langkah Pull Request. Branch `production` adalah patokan dan langsung dideploy; `main` adalah cerminnya.
 - 📜 **[Kode Etik (CODE_OF_CONDUCT.md)](CODE_OF_CONDUCT.md)**: Standar komunikasi dan etika kerja komunitas.
 - 🔒 **[Kebijakan Keamanan (SECURITY.md)](SECURITY.md)**: Prosedur pelaporan celah keamanan.
 

@@ -6,6 +6,8 @@ labels: bug
 assignees: ''
 ---
 
+> ⚠️ **Celah keamanan jangan dilaporkan di sini.** Issue bersifat publik. Ikuti prosedur di [SECURITY.md](../../SECURITY.md). Jangan menempelkan password, token, isi `.env`, atau data pribadi pengguna di issue.
+
 ## 🐛 Deskripsi Bug
 Deskripsi yang jelas dan ringkas tentang apa bug tersebut.
 
