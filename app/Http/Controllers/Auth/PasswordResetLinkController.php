@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
@@ -33,13 +34,13 @@ class PasswordResetLinkController extends Controller
         // We will send the password reset link to this user. Once we have attempted
         // to send the link, we will examine the response then see the message we
         // need to show to the user. Finally, we'll send out a proper response.
-        $status = Password::sendResetLink(
-            $request->only('email')
-        );
-
-        if ($status === Password::RESET_THROTTLED) {
-            return back()->withInput($request->only('email'))
-                ->withErrors(['email' => __($status)]);
+        // The response is identical whatever the outcome (sent, unknown address or
+        // throttled) so the form cannot be used to discover registered accounts.
+        try {
+            Password::sendResetLink($request->only('email'));
+        } catch (\Throwable $e) {
+            // A mail failure only happens for existing accounts; never let it change the response.
+            Log::error('Password reset link could not be sent', ['error' => $e->getMessage()]);
         }
 
         return back()->with('status', 'Jika alamat email Anda terdaftar di sistem, tautan reset kata sandi telah dikirimkan.');
