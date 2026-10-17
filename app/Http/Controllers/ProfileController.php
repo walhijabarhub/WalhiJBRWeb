@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\UserRole;
 use App\Http\Requests\ProfileUpdateRequest;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -47,6 +49,13 @@ class ProfileController extends Controller
         ]);
 
         $user = $request->user();
+
+        if ($user->isAdmin() && User::where('role', UserRole::Admin->value)->count() <= 1) {
+            return Redirect::route('profile.edit')->withErrors(
+                ['password' => 'Akun admin terakhir tidak dapat dihapus. Tambahkan admin lain terlebih dahulu.'],
+                'userDeletion'
+            );
+        }
 
         Auth::logout();
 
