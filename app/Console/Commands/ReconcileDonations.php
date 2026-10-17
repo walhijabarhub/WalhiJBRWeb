@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Enums\DonationStatus;
 use App\Models\Donation;
 use App\Services\Donation\DonationService;
+use App\Services\Donation\GatewayAmountMismatchException;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
@@ -24,7 +25,7 @@ class ReconcileDonations extends Command
         $expireBefore = now()->subHours((int) config('midtrans.expire_after_hours', 24));
         $gateway = $donations->gatewayConfigured();
 
-        $stats = ['updated' => 0, 'expired' => 0, 'unchanged' => 0, 'errors' => 0];
+        $stats = ['updated' => 0, 'expired' => 0, 'unchanged' => 0, 'mismatch' => 0, 'errors' => 0];
 
         Donation::where('status', DonationStatus::Pending->value)
             ->where('created_at', '<=', $reconcileBefore)
@@ -41,6 +42,9 @@ class ReconcileDonations extends Command
                         } else {
                             $stats['unchanged']++;
                         }
+                    } catch (GatewayAmountMismatchException $e) {
+                        // Logged by the service; left pending for manual review without failing the run.
+                        $stats['mismatch']++;
                     } catch (\Throwable $e) {
                         $stats['errors']++;
                         Log::warning('Donation reconciliation failed', [
@@ -52,8 +56,8 @@ class ReconcileDonations extends Command
             });
 
         $this->info(sprintf(
-            'Rekonsiliasi donasi: %d diperbarui, %d kedaluwarsa, %d tetap, %d gagal.',
-            $stats['updated'], $stats['expired'], $stats['unchanged'], $stats['errors']
+            'Rekonsiliasi donasi: %d diperbarui, %d kedaluwarsa, %d tetap, %d nominal tidak cocok (perlu cek manual), %d gagal.',
+            $stats['updated'], $stats['expired'], $stats['unchanged'], $stats['mismatch'], $stats['errors']
         ));
 
         return $stats['errors'] > 0 ? self::FAILURE : self::SUCCESS;

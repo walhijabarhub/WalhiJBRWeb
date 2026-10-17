@@ -78,7 +78,9 @@ class MidtransService
     public function getStatus(string $orderId): ?array
     {
         try {
-            $response = $this->client()->get($this->coreBaseUrl().'/v2/'.rawurlencode($orderId).'/status');
+            // Single attempt: callers (webhook, scheduled reconcile) are retried anyway, and the
+            // webhook must answer quickly so PHP-FPM workers are not held by a slow API.
+            $response = $this->client(attempts: 1)->get($this->coreBaseUrl().'/v2/'.rawurlencode($orderId).'/status');
         } catch (ConnectionException $e) {
             throw new \RuntimeException('Midtrans status API is unreachable: '.$e->getMessage(), previous: $e);
         }
@@ -118,16 +120,16 @@ class MidtransService
         return hash_equals($expected, $incomingSignature);
     }
 
-    private function client(): PendingRequest
+    private function client(int $attempts = 3): PendingRequest
     {
         return Http::acceptJson()
             ->asJson()
             ->withBasicAuth($this->serverKey, '')
             ->connectTimeout((int) config('midtrans.connect_timeout', 5))
             ->timeout((int) config('midtrans.timeout', 10))
-            // Up to 3 attempts on connection errors only. Snap rejects a reused order_id, so a retry
+            // Retries happen on connection errors only. Snap rejects a reused order_id, so a retry
             // after a lost response cannot create a second transaction.
-            ->retry(3, 500, fn ($exception) => $exception instanceof ConnectionException, throw: false);
+            ->retry($attempts, 500, fn ($exception) => $exception instanceof ConnectionException, throw: false);
     }
 
     private function snapUrl(): string

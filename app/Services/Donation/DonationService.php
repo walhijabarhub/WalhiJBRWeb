@@ -154,7 +154,7 @@ class DonationService
                 'gateway_amount' => $status['gross_amount'] ?? null,
             ]);
 
-            throw new \RuntimeException('Midtrans status amount does not match the stored donation.');
+            throw new GatewayAmountMismatchException('Midtrans status amount does not match the stored donation.');
         }
 
         return $this->processWebhook(

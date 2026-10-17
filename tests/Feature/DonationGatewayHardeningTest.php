@@ -205,6 +205,33 @@ class DonationGatewayHardeningTest extends TestCase
         Http::assertNotSent(fn (Request $request) => str_contains($request->url(), 'WALHI-DON-FRESH'));
     }
 
+    public function test_status_lookup_is_not_retried_so_webhook_answers_quickly(): void
+    {
+        $donation = $this->donation();
+        $attempts = 0;
+        Http::fake(function () use (&$attempts) {
+            $attempts++;
+            throw new ConnectionException('timeout');
+        });
+
+        $this->webhook($donation)->assertStatus(503);
+
+        $this->assertSame(1, $attempts);
+    }
+
+    public function test_reconcile_amount_mismatch_is_reported_without_failing_the_run(): void
+    {
+        $donation = $this->donation(['order_id' => 'WALHI-DON-MISMATCH']);
+        $donation->forceFill(['created_at' => now()->subHour()])->save();
+        $this->fakeStatus(['status_code' => '200', 'transaction_status' => 'settlement', 'gross_amount' => '1000.00']);
+
+        $this->artisan('walhi:donations-reconcile')
+            ->expectsOutputToContain('1 nominal tidak cocok')
+            ->assertSuccessful();
+
+        $this->assertSame('pending', $donation->fresh()->status);
+    }
+
     public function test_reconcile_without_gateway_only_expires_stale_donations(): void
     {
         config(['midtrans.server_key' => null]);
