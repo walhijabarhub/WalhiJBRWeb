@@ -62,6 +62,9 @@ nano .env
 - `DB_PASSWORD` & `DB_ROOT_PASSWORD` (Gunakan password acak kuat minimal 24 karakter — **DILARANG** menggunakan string default contoh)
 - `MIDTRANS_SERVER_KEY` & `MIDTRANS_CLIENT_KEY` (Kunci produksi akun Midtrans resmi)
 - `ADMIN_PASSWORD` (Password akun Super Admin)
+- `APP_KEY` (wajib; container menolak start tanpa ini). Buat sekali dengan `docker run --rm walhi_larafel-app php artisan key:generate --show` atau `php artisan key:generate --show` di mesin lokal, lalu **jangan pernah diubah** (mengubahnya membuat sesi & secret 2FA tidak bisa dibaca).
+- `REDIS_PASSWORD` (`openssl rand -hex 24`)
+- `NGINX_SERVER_NAME` (domain tanpa `https://`), `NGINX_CONF=http` untuk start pertama
 
 > [!IMPORTANT]
 > **Checklist Keamanan Kredensial Database:**
@@ -78,10 +81,31 @@ nano .env
 docker compose -f docker-compose.prod.yml up -d --build
 ```
 
-Setelah perintah selesai, 3 container akan otomatis berjalan:
-- `walhi_prod_app` (Aplikasi Laravel 12 / PHP 8.4)
-- `walhi_prod_db` (Basis data MySQL 8.0)
-- `walhi_prod_nginx` (Web Server Nginx & Reverse Proxy)
+Setelah perintah selesai, container berikut berjalan (semua dengan healthcheck — cek dengan `docker compose -f docker-compose.prod.yml ps`):
+- `walhi_prod_app` — Laravel 13 / PHP-FPM 8.4
+- `walhi_prod_worker` — `queue:work` (email konfirmasi newsletter, notifikasi)
+- `walhi_prod_scheduler` — `schedule:work` (rekonsiliasi donasi, flush views, retensi data)
+- `walhi_prod_db` — MySQL 8.0
+- `walhi_prod_redis` — Redis 7 (session, cache, rate limit, queue; tidak dipublish ke luar)
+- `walhi_prod_nginx` — Nginx (server terdepan & terminasi TLS)
+
+### Penyimpanan Persisten
+| Volume | Isi |
+| :--- | :--- |
+| `walhi_prod_app_storage` | `storage/app` — termasuk **dokumen privat** `storage/app/private/documents` |
+| `walhi_prod_storage` | `storage/app/public` — unggahan gambar publik (volume lama, tetap dipakai) |
+| `walhi_prod_db` | Data MySQL |
+| `walhi_prod_redis` | Data Redis (AOF) |
+| `walhi_prod_logs` | `storage/logs` (termasuk `audit.log` & `php-fpm-slow.log`) |
+
+> [!WARNING]
+> **Upgrade dari versi sebelum volume `walhi_prod_app_storage`:** dulu `storage/app/private` tidak persisten, sehingga dokumen yang diunggah sejak deploy terakhir hanya ada di container yang sedang berjalan. **Sebelum** deploy versi ini, salin dokumen tersebut:
+> ```bash
+> docker cp walhi_prod_app:/var/www/html/storage/app/private ./backup-private-$(date +%F)
+> # setelah deploy:
+> docker compose -f docker-compose.prod.yml cp ./backup-private-YYYY-MM-DD/. app:/var/www/html/storage/app/private/
+> docker compose -f docker-compose.prod.yml exec app chown -R www-data:www-data storage/app/private
+> ```
 
 ## 🔒 Konfigurasi Domain & SSL (HTTPS)
 
@@ -93,11 +117,23 @@ chmod +x setup-ssl.sh
 ```
 Skrip ini otomatis:
 1. Menginstal certbot.
-2. Menerbitkan sertifikat SSL resmi Let's Encrypt untuk `walhijabar.co.id` & `www.walhijabar.co.id`.
-3. Mengonfigurasi volume SSL di `docker-compose.prod.yml`.
-4. Mengonfigurasi Nginx untuk HTTPS & auto-redirect HTTP ke HTTPS.
-5. Memperbarui `APP_URL=https://walhijabar.co.id` dan `SESSION_SECURE_COOKIE=true` di `.env`.
-6. Menyetel auto-renewal sertifikat secara berkala via crontab.
+2. Menerbitkan sertifikat Let's Encrypt untuk `<domain>` & `www.<domain>` dengan **metode webroot** — nginx tetap menyala dan melayani `/.well-known/acme-challenge/` dari `docker/certbot/www`.
+3. Memasang hook `/etc/letsencrypt/renewal-hooks/deploy/reload-walhi-nginx.sh` sehingga nginx di-reload setiap kali sertifikat diperpanjang (oleh timer systemd certbot).
+4. Mengubah `.env`: `NGINX_CONF=https`, `NGINX_SERVER_NAME`, `APP_URL=https://…`, `SESSION_SECURE_COOKIE=true`, lalu menjalankan ulang stack.
+5. Menguji perpanjangan dengan `certbot renew --dry-run`.
+
+Konfigurasi nginx kini **versioned di repo** (`docker/nginx/http`, `docker/nginx/https`, `docker/nginx/snippets`) dan dipilih lewat `NGINX_CONF` — tidak ada lagi file yang ditulis ulang di server.
+
+Sertifikat lama yang diterbitkan dengan metode *standalone* otomatis diterbitkan ulang sekali dengan webroot saat skrip dijalankan, sehingga perpanjangan berikutnya tidak lagi membutuhkan port 80 kosong.
+
+### Cloudflare (opsional, disarankan untuk CDN)
+1. Aktifkan proxy (awan oranye) untuk domain, mode SSL **Full (strict)** — sertifikat Let's Encrypt di origin tetap diperlukan.
+2. Setel `NGINX_REALIP=cloudflare` di `.env` lalu `docker compose -f docker-compose.prod.yml up -d web`. Nginx akan memulihkan IP pengunjung asli dari `CF-Connecting-IP` **hanya** untuk koneksi dari rentang IP Cloudflare (`docker/nginx/realip/cloudflare/cloudflare.conf`).
+3. Batasi port 80/443 di firewall VPS hanya untuk rentang IP Cloudflare agar origin tidak bisa diakses langsung. Ingat: port yang dipublish Docker **melewati aturan UFW**; gunakan chain `DOCKER-USER` atau firewall penyedia cloud.
+4. Aturan cache Cloudflare untuk `/build/*`, `/assets/*`, `/storage/*` mengurangi beban VPS secara signifikan.
+
+### Alamat IP Klien
+Nginx adalah server terdepan; IP klien diteruskan ke PHP sebagai `REMOTE_ADDR`, dan header `X-Forwarded-*` dari klien dibuang. `TRUSTED_PROXIES` dibiarkan kosong kecuali ada reverse proxy/load balancer lain di depan nginx. Bila Docker daemon memakai *userland-proxy* (mis. klien IPv6 tanpa `ipv6: true` di daemon), IP yang terlihat adalah gateway Docker — setel `"userland-proxy": false` di `/etc/docker/daemon.json`.
 
 
 ---
@@ -131,10 +167,18 @@ gunzip < storage/backups/walhi_prod_mysql_YYYYMMDD_HHMMSS.sql.gz | docker exec -
 
 ### Anggaran Memori pada VPS 8 GB RAM:
 Container produksi dibatasi secara optimal (*resource limits*) untuk memaksimalkan throughput sekaligus mencegah crash akibat *Out of Memory (OOM)*:
-- **`walhi_prod_app` (PHP-FPM 18 workers + Laravel 12)**: Limit **3.072 MB (3 GB)** (Reservasi: 768 MB)
-- **`walhi_prod_db` (MySQL 8.0 tuned 1.5 GB buffer pool)**: Limit **2.560 MB (2.5 GB)** (Reservasi: 1.024 MB)
-- **`walhi_prod_nginx` (Nginx Alpine Reverse Proxy)**: Limit **512 MB** (Reservasi: 128 MB)
-- **Headroom OS, Page Cache & Linux Buffers**: **~2.048 MB (2 GB)** + Swap 4 GB NVMe
+- **`walhi_prod_app` (PHP-FPM 18 workers)**: Limit **2.048 MB** (Reservasi: 512 MB)
+- **`walhi_prod_worker` (queue worker)**: Limit **384 MB**
+- **`walhi_prod_scheduler` (schedule:work)**: Limit **256 MB**
+- **`walhi_prod_db` (MySQL 8.0, buffer pool 1.5 GB)**: Limit **2.560 MB** (Reservasi: 1.024 MB)
+- **`walhi_prod_redis`**: Limit **256 MB** (`maxmemory` 200 MB)
+- **`walhi_prod_nginx`**: Limit **256 MB**
+- **Headroom OS, Page Cache & Linux Buffers**: **~2.2 GB** + Swap
+
+### Healthcheck & Pemantauan
+- `docker compose -f docker-compose.prod.yml ps` menampilkan status `healthy` tiap container (PHP-FPM via `/ping`, nginx via `/nginx-health`, MySQL, Redis).
+- Endpoint aplikasi `/up` cocok untuk uptime monitor eksternal (UptimeRobot, Better Stack, dll.). Pasang alert untuk `/up`, tanggal kedaluwarsa sertifikat, dan ruang disk.
+- Request PHP yang lebih lambat dari 5 detik tercatat di `storage/logs/php-fpm-slow.log`.
 
 ### Memeriksa Penggunaan CPU & RAM Realtime:
 ```bash
