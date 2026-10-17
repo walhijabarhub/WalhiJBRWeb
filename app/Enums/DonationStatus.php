@@ -49,13 +49,27 @@ enum DonationStatus: string
     }
 
     /**
-     * Determine the status from a Midtrans transaction_status string.
+     * Determine the status from a Midtrans transaction_status / fraud_status pair.
+     *
+     * Card payments report "capture" together with a fraud_status: only "accept"
+     * means the money is secured; "challenge" is still under review and "deny"
+     * was rejected by fraud detection.
+     *
+     * @see https://docs.midtrans.com/docs/https-notification-webhooks
      */
-    public static function fromMidtrans(string $transactionStatus): self
+    public static function fromMidtrans(string $transactionStatus, ?string $fraudStatus = null): self
     {
+        if ($fraudStatus === 'deny') {
+            return self::Failed;
+        }
+
         return match ($transactionStatus) {
-            'capture', 'settlement' => self::Success,
-            'deny', 'cancel' => self::Failed,
+            'capture' => match ($fraudStatus) {
+                'accept', null, '' => self::Success,
+                default => self::Pending,
+            },
+            'settlement' => self::Success,
+            'deny', 'cancel', 'failure' => self::Failed,
             'expire' => self::Expired,
             default => self::Pending,
         };

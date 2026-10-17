@@ -11,6 +11,7 @@ use App\Services\CsvSanitizer;
 use Database\Seeders\AdminUserSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -422,6 +423,9 @@ class SecurityTest extends TestCase
 
         $grossAmount = '50000.00';
         $signature = hash('sha512', 'WALHI-DON-TEST-003200'.$grossAmount.$serverKey);
+        Http::fake(['api.sandbox.midtrans.com/v2/*' => Http::response([
+            'status_code' => '407', 'transaction_status' => 'expire', 'gross_amount' => $grossAmount,
+        ])]);
 
         $response = $this->postJson('/donasi/webhook', [
             'order_id' => 'WALHI-DON-TEST-003',
@@ -452,6 +456,9 @@ class SecurityTest extends TestCase
 
         $grossAmount = '75000.00';
         $signature = hash('sha512', 'WALHI-DON-TEST-004200'.$grossAmount.$serverKey);
+        Http::fake(['api.sandbox.midtrans.com/v2/*' => Http::response([
+            'status_code' => '200', 'transaction_status' => 'settlement', 'payment_type' => 'qris', 'gross_amount' => $grossAmount,
+        ])]);
 
         $payload = [
             'order_id' => 'WALHI-DON-TEST-004',

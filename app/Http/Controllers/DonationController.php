@@ -55,15 +55,10 @@ class DonationController extends Controller
      */
     public function webhook(Request $request)
     {
-        // IP Whitelist Check for Midtrans in Production
-        if (config('app.env') === 'production') {
+        // Optional source-IP allowlist (see config/midtrans.php); the signature check below is mandatory.
+        if (config('midtrans.ip_whitelist_enabled')) {
             $clientIp = $request->ip();
-            $allowedRanges = config('midtrans.ip_whitelist', [
-                '103.208.23.0/24',
-                '103.127.16.0/24',
-                '103.127.17.0/24',
-                '127.0.0.1/32',
-            ]);
+            $allowedRanges = config('midtrans.ip_whitelist', []);
 
             if (! IpUtils::checkIp($clientIp, $allowedRanges)) {
                 Log::warning('Midtrans webhook rejected due to unlisted IP address', [
@@ -107,10 +102,33 @@ class DonationController extends Controller
             return response('Amount Mismatch', 400);
         }
 
-        $transactionStatus = $payload['transaction_status'] ?? '';
-        $paymentType = $payload['payment_type'] ?? null;
+        // The notification body (transaction_status, fraud_status) is not covered by the
+        // signature, so confirm the final status with the Midtrans status API.
+        if (config('midtrans.verify_webhook_status', true)) {
+            try {
+                if ($this->donationService->syncFromGateway($donation) === null) {
+                    Log::warning('Midtrans webhook for an order unknown to the status API', ['order_id' => $orderId]);
 
-        $this->donationService->processWebhook($donation, $transactionStatus, $paymentType);
+                    return response('Transaction Not Found', 404);
+                }
+            } catch (\RuntimeException $e) {
+                Log::error('Midtrans webhook status confirmation failed', [
+                    'order_id' => $orderId,
+                    'error' => $e->getMessage(),
+                ]);
+
+                // Non-2xx makes Midtrans retry the notification later.
+                return response('Status Unavailable', 503);
+            }
+
+            return response('OK', 200);
+        }
+
+        $transactionStatus = (string) ($payload['transaction_status'] ?? '');
+        $paymentType = $payload['payment_type'] ?? null;
+        $fraudStatus = $payload['fraud_status'] ?? null;
+
+        $this->donationService->processWebhook($donation, $transactionStatus, $paymentType, $fraudStatus);
 
         return response('OK', 200);
     }
