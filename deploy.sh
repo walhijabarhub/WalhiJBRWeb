@@ -133,12 +133,24 @@ fi
 log "📥 [3/7] Mengambil kode $TARGET_BRANCH..."
 git fetch origin "$TARGET_BRANCH"
 git reset --hard "${TARGET_COMMIT:-origin/$TARGET_BRANCH}"
-NEW_TAG="$(git rev-parse --short=12 HEAD)"
-PREVIOUS_TAG="$(cat "$STATE_DIR/last_good_tag" 2>/dev/null || env_value IMAGE_TAG)"
+# Exactly 12 characters, matching the tag CI pushes (git --short may return more).
+NEW_TAG="$(git rev-parse HEAD | cut -c1-12)"
+NEW_COMMIT="$(git rev-parse HEAD)"
+
+# Last healthy release: "<image> <tag> <commit>" (older state files hold only a tag).
+PREVIOUS_IMAGE="" PREVIOUS_TAG="" PREVIOUS_COMMIT=""
+if [ -f "$STATE_DIR/last_good" ]; then
+    read -r PREVIOUS_IMAGE PREVIOUS_TAG PREVIOUS_COMMIT < "$STATE_DIR/last_good" || true
+fi
+PREVIOUS_IMAGE="${PREVIOUS_IMAGE:-$(env_value APP_IMAGE)}"
+PREVIOUS_IMAGE="${PREVIOUS_IMAGE:-walhi_larafel-app}"
+PREVIOUS_TAG="${PREVIOUS_TAG:-$(cat "$STATE_DIR/last_good_tag" 2>/dev/null || env_value IMAGE_TAG)}"
 PREVIOUS_TAG="${PREVIOUS_TAG:-latest}"
+PREVIOUS_COMMIT="${PREVIOUS_COMMIT:-}"
+
 APP_IMAGE="${APP_IMAGE:-$(env_value APP_IMAGE)}"
 APP_IMAGE="${APP_IMAGE:-walhi_larafel-app}"
-log "   Versi: ${PREVIOUS_TAG} ➔ ${NEW_TAG} (image: $APP_IMAGE)"
+log "   Versi: ${PREVIOUS_IMAGE}:${PREVIOUS_TAG} ➔ ${APP_IMAGE}:${NEW_TAG}"
 
 export APP_IMAGE IMAGE_TAG="$NEW_TAG"
 if [[ "$APP_IMAGE" == */* ]]; then
@@ -166,17 +178,7 @@ if ! dc run --rm --no-deps -e CONTAINER_ROLE=migrate app php artisan migrate --f
     fail "Migrasi gagal. Versi lama tetap berjalan; periksa log lalu pulihkan dari backup pra-deploy jika skema berubah sebagian."
 fi
 
-# ── 6. Swap containers ────────────────────────────────────────────────────────
-log "🔄 [6/7] Menjalankan container versi $NEW_TAG..."
-set_env APP_IMAGE "$APP_IMAGE"
-set_env IMAGE_TAG "$NEW_TAG"
-dc up -d --no-build --remove-orphans
-# nginx config comes from bind-mounted templates that git reset may have changed;
-# restarting re-renders them (compose does not recreate web for file changes).
-dc restart web
-
-# ── 7. Health check & rollback ────────────────────────────────────────────────
-log "🩺 [7/7] Health check..."
+# ── 6/7 helpers ──────────────────────────────────────────────────────────────
 wait_healthy() {
     for _ in $(seq 1 40); do
         local app web
@@ -199,6 +201,37 @@ http_check() {
     fi
 }
 
+# Start a release: nginx config comes from bind-mounted templates that git may have
+# changed, so web is restarted to re-render them (compose does not recreate it).
+start_release() {
+    set_env APP_IMAGE "$1"
+    set_env IMAGE_TAG "$2"
+    APP_IMAGE="$1" IMAGE_TAG="$2" dc up -d --no-build --remove-orphans && dc restart web
+}
+
+rollback() {
+    log "❌ $1 — rollback ke ${PREVIOUS_IMAGE}:${PREVIOUS_TAG}..."
+    trap - ERR
+    # Restore the previous commit too: compose and nginx templates are bind-mounted from it.
+    if [ -n "$PREVIOUS_COMMIT" ]; then
+        git reset --hard "$PREVIOUS_COMMIT" >/dev/null || true
+    fi
+    start_release "$PREVIOUS_IMAGE" "$PREVIOUS_TAG" || true
+    maintenance_off
+    if wait_healthy && http_check; then
+        log "   Rollback selesai; ${PREVIOUS_TAG} kembali melayani. Migrasi yang sudah berjalan TIDAK dibatalkan otomatis."
+    else
+        log "   ⚠️  Rollback dijalankan tetapi health check masih gagal — periksa server segera."
+    fi
+    exit 1
+}
+
+# ── 6. Swap containers ────────────────────────────────────────────────────────
+log "🔄 [6/7] Menjalankan container versi $NEW_TAG..."
+start_release "$APP_IMAGE" "$NEW_TAG" || rollback "Gagal menjalankan container $NEW_TAG"
+
+# ── 7. Health check & rollback ────────────────────────────────────────────────
+log "🩺 [7/7] Health check..."
 HEALTHY=false
 if wait_healthy; then
     maintenance_off
@@ -208,27 +241,19 @@ if wait_healthy; then
     done
 fi
 
-if [ "$HEALTHY" != true ]; then
-    log "❌ Health check gagal untuk $NEW_TAG — rollback ke $PREVIOUS_TAG..."
-    set_env IMAGE_TAG "$PREVIOUS_TAG"
-    IMAGE_TAG="$PREVIOUS_TAG" dc up -d --no-build --remove-orphans || true
-    dc restart web || true
-    maintenance_off
-    if wait_healthy && http_check; then
-        log "   Rollback selesai; versi $PREVIOUS_TAG kembali melayani. Migrasi yang sudah berjalan TIDAK dibatalkan otomatis."
-    else
-        log "   ⚠️  Rollback dijalankan tetapi health check masih gagal — periksa server segera."
-    fi
-    exit 1
-fi
+[ "$HEALTHY" = true ] || rollback "Health check gagal untuk $NEW_TAG"
 
+echo "$APP_IMAGE $NEW_TAG $NEW_COMMIT" > "$STATE_DIR/last_good"
 echo "$NEW_TAG" > "$STATE_DIR/last_good_tag"
 log "✅ Deploy $NEW_TAG berhasil dan sehat."
 
 # Keep the current and previous image for rollback; remove older ones.
-docker images "$APP_IMAGE" --format '{{.Tag}}' \
-    | grep -vxE "($NEW_TAG|$PREVIOUS_TAG|latest)" \
-    | while read -r tag; do docker rmi "$APP_IMAGE:$tag" >/dev/null 2>&1 || true; done
+for tag in $(docker images "$APP_IMAGE" --format '{{.Tag}}'); do
+    case "$tag" in
+        "$NEW_TAG"|"$PREVIOUS_TAG"|latest) ;;
+        *) docker rmi "$APP_IMAGE:$tag" >/dev/null 2>&1 || true ;;
+    esac
+done
 docker image prune -f >/dev/null 2>&1 || true
 
 log "═══════════════════════════════════════════════════════════════"

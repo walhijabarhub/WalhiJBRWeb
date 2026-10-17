@@ -95,9 +95,10 @@ JAIL
 systemctl enable --now fail2ban
 dpkg-reconfigure -f noninteractive unattended-upgrades || true
 
-# Docker: keep client source IPs (no userland proxy) so rate limits see real visitors.
+# Docker log rotation. (Setting "userland-proxy": false keeps IPv4 client IPs exact but
+# drops IPv6 access unless Docker IPv6 is configured — see DEPLOYMENT.md, not done here.)
 if [ ! -f /etc/docker/daemon.json ]; then
-    echo '{ "userland-proxy": false, "log-driver": "json-file", "log-opts": { "max-size": "20m", "max-file": "5" } }' > /etc/docker/daemon.json
+    echo '{ "log-driver": "json-file", "log-opts": { "max-size": "20m", "max-file": "5" } }' > /etc/docker/daemon.json
     systemctl restart docker
 fi
 
