@@ -19,17 +19,22 @@ class HtmlSanitizer
     }
 
     /**
-     * Sanitize a body for storage. Plain text (no tags) is kept verbatim so that
-     * structured bodies (e.g. "key: value" lines, JSON) and paragraph formatting
-     * done at render time keep working.
+     * Sanitize a body for storage.
+     *
+     * The original is kept when purifying would only entity-encode it (plain text such as
+     * "target <50%", "key: value" lines or JSON), so render-time formatting keeps working
+     * and text is never double-encoded. Anything the purifier actually strips or rewrites
+     * is stored in its purified form.
      */
     public static function forStorage(?string $body): ?string
     {
-        if ($body === null || $body === '' || strip_tags($body) === $body) {
+        if ($body === null || $body === '' || ! str_contains($body, '<')) {
             return $body;
         }
 
-        return self::purify($body);
+        $purified = self::purify($body);
+
+        return html_entity_decode($purified, ENT_QUOTES | ENT_HTML5, 'UTF-8') === $body ? $body : $purified;
     }
 
     private static function purifier(): HTMLPurifier

@@ -131,6 +131,38 @@ class ContentSecurityHardeningTest extends TestCase
         $this->assertSame($plain, Content::where('category', 'kontak')->value('body'));
     }
 
+    public function test_plain_text_with_angle_brackets_is_not_entity_encoded(): void
+    {
+        $this->actingAs($this->editor)->post('/admin/statistik', [
+            'title' => 'Target Emisi',
+            'status' => 'published',
+            'body' => 'target <50% di 2030',
+        ])->assertSessionHasNoErrors();
+
+        $this->assertSame('target <50% di 2030', Content::where('title', 'Target Emisi')->value('body'));
+    }
+
+    public function test_banner_tags_posted_directly_are_validated(): void
+    {
+        $this->actingAs($this->editor)->post('/admin/banner', [
+            'title' => 'Banner Lewat Tags',
+            'status' => 'published',
+            'tags' => 'Klik|javascript:alert(1)||',
+        ])->assertSessionHasErrors('tags');
+
+        $this->assertDatabaseMissing('contents', ['title' => 'Banner Lewat Tags']);
+    }
+
+    public function test_sidebar_hides_admin_only_links_from_editors(): void
+    {
+        $editorHtml = $this->actingAs($this->editor)->get('/admin/blog')->assertOk()->getContent();
+        $this->assertStringNotContainsString(route('admin.content.index', 'donasi'), $editorHtml);
+        $this->assertStringNotContainsString(route('admin.content.index', 'kampanye-darurat'), $editorHtml);
+
+        $adminHtml = $this->actingAs($this->admin)->get('/admin/blog')->assertOk()->getContent();
+        $this->assertStringContainsString(route('admin.content.index', 'donasi'), $adminHtml);
+    }
+
     public function test_admin_edit_payload_contains_sanitized_body_for_legacy_rows(): void
     {
         Content::create([

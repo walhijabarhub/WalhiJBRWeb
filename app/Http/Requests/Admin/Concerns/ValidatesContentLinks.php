@@ -26,6 +26,21 @@ trait ValidatesContentLinks
             $rules['tags'] = ['nullable', 'string', 'max:500', new SafeUrl];
         }
 
+        // Banners keep "text1|url1|text2|url2" in "tags"; validate the URLs even when the
+        // value is posted directly instead of through the banner_btn* fields.
+        if ($this->route('category') === 'banner') {
+            $rules['tags'] = ['nullable', 'string', 'max:500', function (string $attribute, mixed $value, \Closure $fail) {
+                $parts = explode('|', (string) $value);
+                foreach ([1, 3] as $index) {
+                    if (! empty($parts[$index]) && ! SafeUrl::isSafe($parts[$index])) {
+                        $fail('Tautan tombol banner harus berupa URL http/https, jalur "/", atau anchor "#".');
+
+                        return;
+                    }
+                }
+            }];
+        }
+
         return $rules;
     }
 }

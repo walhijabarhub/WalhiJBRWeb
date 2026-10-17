@@ -128,7 +128,9 @@ $dateStr = now()->locale('id')->isoFormat('dddd, D MMMM YYYY');
                         <a href="{{ route('admin.content.index', 'banner') }}" class="block px-2 py-1.5 rounded text-xs transition-colors {{ request()->is('admin/banner*') ? 'text-[#5C8D59] font-semibold' : 'text-[#888] hover:text-[#F4F1EA]' }}">Banner Beranda</a>
                         <a href="{{ route('admin.content.index', 'statistik') }}" class="block px-2 py-1.5 rounded text-xs transition-colors {{ request()->is('admin/statistik*') ? 'text-[#5C8D59] font-semibold' : 'text-[#888] hover:text-[#F4F1EA]' }}">Statistik Utama</a>
                         <a href="{{ route('admin.content.index', 'isu-kritis') }}" class="block px-2 py-1.5 rounded text-xs transition-colors {{ request()->is('admin/isu-kritis*') ? 'text-[#5C8D59] font-semibold' : 'text-[#888] hover:text-[#F4F1EA]' }}">Isu Kritis</a>
+                        @if(auth()->user()?->isAdmin())
                         <a href="{{ route('admin.content.index', 'kampanye-darurat') }}" class="block px-2 py-1.5 rounded text-xs transition-colors {{ request()->is('admin/kampanye-darurat*') ? 'text-[#5C8D59] font-semibold' : 'text-[#888] hover:text-[#F4F1EA]' }}">Kampanye Darurat</a>
+                        @endif
                     </div>
                 </div>
 
@@ -165,7 +167,9 @@ $dateStr = now()->locale('id')->isoFormat('dddd, D MMMM YYYY');
                         <i data-lucide="chevron-down" id="chevron-dukung" class="w-3.5 h-3.5 group-chevron nav-label transition-transform duration-200 {{ $dukungActive ? 'rotate-0' : '-rotate-90' }}"></i>
                     </button>
                     <div class="ml-4 mt-0.5 space-y-0.5 border-l border-[#2a2a2a] pl-3 sub-nav {{ $dukungActive ? '' : 'hidden' }}" id="sub-dukung">
+                        @if(auth()->user()?->isAdmin())
                         <a href="{{ route('admin.content.index', 'donasi') }}" class="block px-2 py-1.5 rounded text-xs transition-colors {{ request()->is('admin/donasi*') ? 'text-[#5C8D59] font-semibold' : 'text-[#888] hover:text-[#F4F1EA]' }}">Donasi Publik</a>
+                        @endif
                         <a href="{{ route('admin.content.index', 'pekan-rakyat') }}" class="block px-2 py-1.5 rounded text-xs transition-colors {{ request()->is('admin/pekan-rakyat*') ? 'text-[#5C8D59] font-semibold' : 'text-[#888] hover:text-[#F4F1EA]' }}">Pekan Rakyat</a>
                     </div>
                 </div>
@@ -186,7 +190,9 @@ $dateStr = now()->locale('id')->isoFormat('dddd, D MMMM YYYY');
                         <a href="{{ route('admin.content.tentang.index', 'dewan-nasional') }}" class="block px-2 py-1.5 rounded text-xs transition-colors {{ request()->is('admin/tentang/dewan-nasional*') ? 'text-[#5C8D59] font-semibold' : 'text-[#888] hover:text-[#F4F1EA]' }}">Dewan Nasional</a>
                         <a href="{{ route('admin.content.tentang.index', 'eksekutif-nasional') }}" class="block px-2 py-1.5 rounded text-xs transition-colors {{ request()->is('admin/tentang/eksekutif-nasional*') ? 'text-[#5C8D59] font-semibold' : 'text-[#888] hover:text-[#F4F1EA]' }}">Eksekutif Nasional</a>
                         <a href="{{ route('admin.content.tentang.index', 'eksekutif-daerah') }}" class="block px-2 py-1.5 rounded text-xs transition-colors {{ request()->is('admin/tentang/eksekutif-daerah*') ? 'text-[#5C8D59] font-semibold' : 'text-[#888] hover:text-[#F4F1EA]' }}">Eksekutif Daerah</a>
+                        @if(auth()->user()?->isAdmin())
                         <a href="{{ route('admin.content.tentang.index', 'kontak') }}" class="block px-2 py-1.5 rounded text-xs transition-colors {{ request()->is('admin/tentang/kontak*') ? 'text-[#5C8D59] font-semibold' : 'text-[#888] hover:text-[#F4F1EA]' }}">Kontak</a>
+                        @endif
                     </div>
                 </div>
             </nav>
