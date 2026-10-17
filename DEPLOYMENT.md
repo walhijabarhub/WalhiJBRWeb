@@ -89,6 +89,22 @@ Setelah perintah selesai, container berikut berjalan (semua dengan healthcheck �
 - `walhi_prod_redis` — Redis 7 (session, cache, rate limit, queue; tidak dipublish ke luar)
 - `walhi_prod_nginx` — Nginx (server terdepan & terminasi TLS)
 
+### ⬆️ Upgrade Server yang Sudah Berjalan (wajib sebelum deploy versi ini)
+Versi ini menambah Redis, worker, scheduler dan template nginx. Lakukan **sebelum** `git pull` / deploy berikutnya, atau deploy akan gagal / HTTPS mati:
+1. Tambahkan ke `.env` server:
+   ```bash
+   REDIS_PASSWORD=$(openssl rand -hex 24)   # isi nilai hasil perintah ini
+   NGINX_SERVER_NAME=walhijabar.co.id        # domain sertifikat yang sudah ada
+   NGINX_CONF=https                          # karena sertifikat sudah terpasang
+   SESSION_DRIVER=redis
+   CACHE_STORE=redis
+   QUEUE_CONNECTION=redis
+   ```
+   Pastikan `APP_KEY` sudah terisi (wajib).
+2. Salin dokumen privat dari container lama (lihat peringatan di bawah).
+3. Deploy, lalu jalankan `sudo ./setup-ssl.sh walhijabar.co.id` sekali untuk memindahkan perpanjangan sertifikat ke metode webroot.
+4. Periksa `docker compose -f docker-compose.prod.yml ps` — semua container harus `healthy`/`running`.
+
 ### Penyimpanan Persisten
 | Volume | Isi |
 | :--- | :--- |

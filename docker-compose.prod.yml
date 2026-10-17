@@ -6,9 +6,8 @@
 # Shared settings for every container that runs the Laravel image (app, worker, scheduler).
 x-laravel: &laravel
   image: ${APP_IMAGE:-walhi_larafel-app}:${IMAGE_TAG:-latest}
-  build:
-    context: .
-    dockerfile: Dockerfile
+  # Built once by the app service (below) and reused by worker and scheduler.
+  pull_policy: never
   restart: always
   env_file:
     - path: .env
@@ -96,6 +95,9 @@ services:
   app:
     <<: *laravel
     container_name: walhi_prod_app
+    build:
+      context: .
+      dockerfile: Dockerfile
     environment:
       <<: *laravel-env
       CONTAINER_ROLE: app
@@ -183,7 +185,12 @@ services:
     image: redis:7.4-alpine
     container_name: walhi_prod_redis
     restart: always
-    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:?Error: REDIS_PASSWORD wajib disetel di .env}", "--appendonly", "yes", "--maxmemory", "200mb", "--maxmemory-policy", "volatile-lru"]
+    # The password is written to a config file at start so it never appears in the
+    # process list or in the container command.
+    command:
+      - sh
+      - -c
+      - printf 'requirepass %s\n' "$$REDIS_PASSWORD" > /tmp/redis.conf && exec redis-server /tmp/redis.conf --appendonly yes --maxmemory 200mb --maxmemory-policy volatile-lru
     volumes:
       - walhi_prod_redis:/data
     networks:
@@ -194,7 +201,7 @@ services:
       timeout: 3s
       retries: 5
     environment:
-      REDIS_PASSWORD: "${REDIS_PASSWORD}"
+      REDIS_PASSWORD: "${REDIS_PASSWORD:?Error: REDIS_PASSWORD wajib disetel di .env}"
     deploy:
       resources:
         limits:
