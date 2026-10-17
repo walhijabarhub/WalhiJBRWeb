@@ -109,7 +109,9 @@ class Content extends Model
             return $query;
         }
 
-        $words = collect(preg_split('/\s+/u', preg_replace('/[+\-<>()~*"@]+/u', ' ', $term)))
+        // Split on anything that is not a letter or digit, as the InnoDB parser does, so
+        // punctuation never reaches the boolean query ("32/2009" -> "2009").
+        $words = collect(preg_split('/[^\p{L}\p{N}]+/u', $term))
             ->filter(fn ($word) => mb_strlen($word) >= 3)
             ->values();
 

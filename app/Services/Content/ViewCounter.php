@@ -20,14 +20,18 @@ class ViewCounter
     {
         $key = self::counterKey($content->id);
 
-        // The first increment in a flush window registers the id in the index.
-        if ((int) Cache::increment($key) === 1) {
+        // add() is atomic on every store and creates the counter the first time, because
+        // some stores (database) refuse to increment a missing key. The id then stays in
+        // the index, so it is registered only once per content item.
+        if (Cache::add($key, 0)) {
             Cache::lock(self::LOCK_KEY, 5)->block(3, function () use ($content) {
                 $ids = Cache::get(self::INDEX_KEY, []);
                 $ids[$content->id] = true;
                 Cache::forever(self::INDEX_KEY, $ids);
             });
         }
+
+        Cache::increment($key);
     }
 
     /**
@@ -37,14 +41,14 @@ class ViewCounter
      */
     public static function flush(): int
     {
-        $ids = Cache::lock(self::LOCK_KEY, 5)->block(3, function () {
-            return array_keys(Cache::pull(self::INDEX_KEY, []));
-        });
+        $ids = array_keys(Cache::get(self::INDEX_KEY, []));
 
         $written = 0;
         foreach ($ids as $id) {
-            $count = (int) Cache::pull(self::counterKey($id), 0);
+            $count = (int) Cache::get(self::counterKey($id), 0);
             if ($count > 0) {
+                // Decrement by the amount read (not pull) so views recorded meanwhile are kept.
+                Cache::decrement(self::counterKey($id), $count);
                 // Query builder: no model events, so caches are not flushed for a counter.
                 DB::table('contents')->where('id', $id)->increment('views', $count);
                 $written += $count;

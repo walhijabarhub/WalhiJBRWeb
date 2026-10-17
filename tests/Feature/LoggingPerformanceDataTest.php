@@ -170,6 +170,35 @@ class LoggingPerformanceDataTest extends TestCase
         $this->assertSame(0, ViewCounter::pending($content->id));
     }
 
+    public function test_views_are_counted_on_the_database_cache_store(): void
+    {
+        config(['cache.default' => 'database']);
+        $content = $this->content();
+
+        foreach (range(1, 3) as $i) {
+            $this->flushSession();
+            $this->get("/konten/{$content->slug}")->assertOk();
+        }
+
+        $this->artisan('walhi:flush-views')->assertSuccessful();
+        $this->assertSame(3, $content->fresh()->views);
+
+        // Later views on the same item keep being counted after a flush.
+        $this->flushSession();
+        $this->get("/konten/{$content->slug}")->assertOk();
+        $this->artisan('walhi:flush-views')->assertSuccessful();
+        $this->assertSame(4, $content->fresh()->views);
+    }
+
+    public function test_search_drops_punctuation_from_fulltext_terms(): void
+    {
+        config(['database.connections.mysql_sql_only' => array_merge(config('database.connections.mysql'), ['database' => 'unused'])]);
+
+        $query = Content::on('mysql_sql_only')->search('UU 32/2009 lingkungan.hidup');
+
+        $this->assertContains('+2009* +lingkungan* +hidup*', $query->getBindings());
+    }
+
     // ── #94 Newsletter double opt-in ──────────────────────────────────
 
     public function test_subscription_requires_email_confirmation(): void
@@ -253,11 +282,13 @@ class LoggingPerformanceDataTest extends TestCase
         $oldDonation = Donation::create(['order_id' => 'OLD', 'donor_name' => 'Budi', 'donor_email' => 'budi@example.org', 'donor_phone' => '0812', 'amount' => 50000, 'status' => 'success']);
         $newDonation = Donation::create(['order_id' => 'NEW', 'donor_name' => 'Sari', 'donor_email' => 'sari@example.org', 'donor_phone' => '0813', 'amount' => 75000, 'status' => 'success']);
         $oldComment = Comment::create(['content_id' => $content->id, 'author_name' => 'Ani', 'author_email' => 'ani@example.org', 'body' => 'Komentar', 'status' => 'approved']);
+        $trashedComment = Comment::create(['content_id' => $content->id, 'author_name' => 'Spam', 'author_email' => 'spam@example.org', 'body' => 'x', 'status' => 'spam']);
+        $trashedComment->delete();
         $stale = Subscriber::create(['email' => 'lama@example.org', 'is_active' => false]);
         $confirmed = Subscriber::create(['email' => 'tetap@example.org', 'is_active' => true, 'confirmed_at' => now()]);
 
         DB::table('donations')->where('id', $oldDonation->id)->update(['created_at' => now()->subMonths(30)]);
-        DB::table('comments')->where('id', $oldComment->id)->update(['created_at' => now()->subMonths(30)]);
+        DB::table('comments')->whereIn('id', [$oldComment->id, $trashedComment->id])->update(['created_at' => now()->subMonths(30)]);
         DB::table('subscribers')->whereIn('id', [$stale->id, $confirmed->id])->update(['created_at' => now()->subDays(60)]);
 
         $this->artisan('walhi:prune-personal-data')->assertSuccessful();
@@ -268,6 +299,7 @@ class LoggingPerformanceDataTest extends TestCase
         $this->assertSame(50000, $old->amount);
         $this->assertSame('sari@example.org', $newDonation->fresh()->donor_email);
         $this->assertStringEndsWith('@anonymized.invalid', $oldComment->fresh()->author_email);
+        $this->assertStringEndsWith('@anonymized.invalid', Comment::withTrashed()->find($trashedComment->id)->author_email);
         $this->assertNull(Subscriber::withTrashed()->find($stale->id));
         $this->assertNotNull($confirmed->fresh());
         $this->assertDatabaseHas('audit_logs', ['action' => 'PERSONAL_DATA_PRUNED']);

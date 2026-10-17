@@ -31,7 +31,8 @@ class PrunePersonalData extends Command
         $donations = Donation::withTrashed()
             ->where('created_at', '<', $retentionCutoff)
             ->where('donor_email', 'not like', $notAnonymised);
-        $comments = Comment::where('created_at', '<', $retentionCutoff)
+        $comments = Comment::withTrashed()
+            ->where('created_at', '<', $retentionCutoff)
             ->where('author_email', 'not like', $notAnonymised);
         $unconfirmed = Subscriber::withTrashed()
             ->whereNull('confirmed_at')

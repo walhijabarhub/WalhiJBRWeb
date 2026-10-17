@@ -21,9 +21,10 @@ return new class extends Migration
         // Existing active subscribers predate double opt-in: keep them subscribed.
         DB::table('subscribers')->where('is_active', true)->update(['confirmed_at' => DB::raw('created_at')]);
 
-        DB::table('subscribers')->whereNull('token')->orderBy('id')->each(function ($row) {
-            DB::table('subscribers')->where('id', $row->id)->update(['token' => Str::random(64)]);
-        });
+        // Collect ids first: updating rows while paging over "token IS NULL" would skip rows.
+        foreach (DB::table('subscribers')->whereNull('token')->pluck('id') as $id) {
+            DB::table('subscribers')->where('id', $id)->update(['token' => Str::random(64)]);
+        }
 
         Schema::table('subscribers', function (Blueprint $table) {
             $table->unique('token');
