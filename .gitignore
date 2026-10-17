@@ -46,5 +46,6 @@ Thumbs.db
 # Local seed credentials & admin data
 /database/seeders/*.local.json
 /database/seeders/admins.json
+/database/seeders/admins.local.json
 *.local.json
 
