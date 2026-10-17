@@ -1,205 +1,120 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────────────────────
-# WALHI Jawa Barat — Production SSL (HTTPS) Auto-Configuration Script
-# Domain: walhijabar.co.id & www.walhijabar.co.id
+# WALHI Jawa Barat — Production SSL (HTTPS) Setup
+#
+# Issues a Let's Encrypt certificate with the WEBROOT method: the running nginx
+# container serves /.well-known/acme-challenge/ from docker/certbot/www, so the
+# web server never has to be stopped and automatic renewal keeps working.
+#
+# Usage: sudo ./setup-ssl.sh [domain] [email]
+#   domain  default: walhijabar.co.id (certificate also covers www.<domain>)
+#   email   default: $CERTBOT_EMAIL or the maintainer address below
 # ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
-DOMAIN="${1:-walhijabar.or.id}"
-EMAIL="irsalshydiq@gmail.com"
-APP_DIR="/var/www/walhi_app"
+DOMAIN="${1:-walhijabar.co.id}"
+EMAIL="${2:-${CERTBOT_EMAIL:-irsalshydiq@gmail.com}}"
+APP_DIR="${APP_DIR:-/var/www/walhi_app}"
+COMPOSE="docker compose -f $APP_DIR/docker-compose.prod.yml"
+WEBROOT="$APP_DIR/docker/certbot/www"
+HOOK="/etc/letsencrypt/renewal-hooks/deploy/reload-walhi-nginx.sh"
 
 echo "==================================================================="
-echo "  🔒 WALHI Jawa Barat — Setup SSL HTTPS (Let's Encrypt)"
+echo "  🔒 WALHI Jawa Barat — Setup SSL HTTPS (Let's Encrypt, webroot)"
 echo "  Domain: $DOMAIN & www.$DOMAIN"
 echo "==================================================================="
 
-# 1. Pastikan dijalankan sebagai root
 if [ "$(id -u)" -ne 0 ]; then
-    echo "❌ Error: Skrip ini wajib dijalankan sebagai root."
+    echo "❌ Skrip ini wajib dijalankan sebagai root."
     exit 1
 fi
 
-# Pastikan Nginx dinyalakan kembali jika terjadi kegagalan
-trap 'cd "$APP_DIR" && docker compose -f docker-compose.prod.yml start web >/dev/null 2>&1 || true' ERR
+cd "$APP_DIR"
 
-# 2. Periksa apakah DNS domain sudah terpropagasi
-echo "🔍 [1/6] Memeriksa propagasi DNS untuk $DOMAIN..."
+if [ ! -f .env ]; then
+    echo "❌ File $APP_DIR/.env tidak ditemukan."
+    exit 1
+fi
+
+# Set KEY=VALUE in .env (replace when present, append otherwise).
+set_env() {
+    if grep -q "^$1=" .env; then
+        sed -i "s|^$1=.*|$1=$2|" .env
+    else
+        echo "$1=$2" >> .env
+    fi
+}
+
+# 1. DNS must already point at this server
+echo "🔍 [1/6] Memeriksa DNS untuk $DOMAIN..."
 RESOLVED_IP=$(getent ahostsv4 "$DOMAIN" 2>/dev/null | awk '{print $1}' | head -n 1 || true)
 if [ -z "$RESOLVED_IP" ]; then
-    echo "❌ Domain $DOMAIN belum terpropagasi di internet (masih NXDOMAIN / belum aktif di registry PANDI)."
-    echo "   Let's Encrypt hanya bisa menerbitkan SSL jika domain sudah mengarah ke IP server ini."
-    echo "   Silakan tunggu sampai domain aktif (biasanya 15-30 menit), lalu jalankan skrip ini kembali."
+    echo "❌ Domain $DOMAIN belum mengarah ke server mana pun. Tunggu propagasi DNS lalu ulangi."
     exit 1
 fi
-echo "   ✅ DNS terdeteksi mengarah ke: $RESOLVED_IP"
+echo "   ✅ DNS mengarah ke: $RESOLVED_IP"
 
-# 3. Install Certbot
-echo "📦 [2/6] Memeriksa & menginstal Certbot..."
-apt-get update -y
-apt-get install -y certbot
+# 2. Certbot
+echo "📦 [2/6] Memastikan Certbot terpasang..."
+command -v certbot >/dev/null 2>&1 || { apt-get update -y && apt-get install -y certbot; }
 
-# 4. Matikan sementara container web agar port 80 dapat dipakai Certbot
-echo "🛑 [3/6] Mematikan sementara Nginx container..."
-cd "$APP_DIR"
-docker compose -f docker-compose.prod.yml stop web || true
+# 3. Serve the ACME challenge over plain HTTP (nginx stays up the whole time)
+echo "🌐 [3/6] Menjalankan nginx mode HTTP untuk challenge ACME..."
+mkdir -p "$WEBROOT"
+set_env NGINX_SERVER_NAME "$DOMAIN"
+if [ ! -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
+    set_env NGINX_CONF http
+fi
+$COMPOSE up -d web
 
-# 5. Menerbitkan sertifikat SSL
-echo "📜 [4/6] Menerbitkan sertifikat SSL Let's Encrypt..."
-certbot certonly --standalone \
-    -d "$DOMAIN" \
-    -d "www.$DOMAIN" \
-    --non-interactive \
-    --agree-tos \
-    -m "$EMAIL"
-
-# 5. Pasang volume SSL di docker-compose.prod.yml (jika belum ada)
-echo "🐳 [4/6] Mengonfigurasi volume SSL pada docker-compose.prod.yml..."
-if ! grep -q '/etc/letsencrypt:/etc/letsencrypt:ro' docker-compose.prod.yml; then
-    sed -i '/- .\/docker\/nginx\/default.conf/i \      - /etc/letsencrypt:/etc/letsencrypt:ro' docker-compose.prod.yml
+# 4. Issue the certificate. An existing certificate that was issued with the old
+#    standalone method is re-issued once so its renewal config switches to webroot.
+echo "📜 [4/6] Menerbitkan sertifikat..."
+EXTRA_ARGS=()
+RENEWAL_CONF="/etc/letsencrypt/renewal/$DOMAIN.conf"
+if [ -f "$RENEWAL_CONF" ] && grep -q "authenticator = standalone" "$RENEWAL_CONF"; then
+    echo "   ℹ️  Sertifikat lama memakai metode standalone; diterbitkan ulang dengan webroot."
+    EXTRA_ARGS+=(--force-renewal)
 fi
 
-# 6. Konfigurasi Nginx untuk HTTPS
-echo "⚙️  [5/6] Mengonfigurasi Nginx untuk HTTPS (Port 443 + HTTP Redirect)..."
-cat > "$APP_DIR/docker/nginx/default.conf" <<NGINX_EOF
-# Redirect all HTTP to HTTPS
-server {
-    listen 80;
-    listen [::]:80;
-    server_name ${DOMAIN} www.${DOMAIN};
+certbot certonly --webroot -w "$WEBROOT" \
+    --cert-name "$DOMAIN" \
+    -d "$DOMAIN" -d "www.$DOMAIN" \
+    --non-interactive --agree-tos -m "$EMAIL" \
+    --keep-until-expiring ${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}
 
-    location /.well-known/acme-challenge/ {
-        root /var/www/certbot;
-    }
+# 5. Reload nginx after every renewal (used by certbot's systemd timer and cron alike)
+echo "🔁 [5/6] Memasang hook reload nginx setelah perpanjangan..."
+mkdir -p "$(dirname "$HOOK")"
+cat > "$HOOK" <<HOOK_EOF
+#!/bin/sh
+$COMPOSE exec -T web nginx -s reload
+HOOK_EOF
+chmod 755 "$HOOK"
 
-    location / {
-        return 301 https://\$host\$request_uri;
-    }
-}
+# Remove the old cron entry that stopped/restarted the web container.
+(crontab -l 2>/dev/null | grep -Fv 'certbot renew' || true) | crontab -
+# Certbot's packaged systemd timer renews twice a day; add a cron fallback if it is missing.
+if ! systemctl list-timers 2>/dev/null | grep -q certbot; then
+    (crontab -l 2>/dev/null; echo "17 3 * * * certbot renew --quiet") | crontab -
+fi
 
-# Main HTTPS Server
-server {
-    listen 443 ssl;
-    listen [::]:443 ssl;
-    server_name ${DOMAIN} www.${DOMAIN};
+# 6. Switch the stack to HTTPS
+echo "⚙️  [6/6] Mengaktifkan HTTPS..."
+set_env NGINX_CONF https
+set_env APP_URL "https://$DOMAIN"
+set_env SESSION_SECURE_COOKIE true
+$COMPOSE up -d
 
-    ssl_certificate /etc/letsencrypt/live/${DOMAIN}/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/${DOMAIN}/privkey.pem;
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_prefer_server_ciphers on;
-    ssl_ciphers 'ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384';
-    ssl_session_timeout 1d;
-    ssl_session_cache shared:SSL:10m;
-
-    root /var/www/html/public;
-    index index.php index.html;
-
-    charset utf-8;
-    server_tokens off;
-    client_max_body_size 25M;
-
-    # Gzip Compression
-    gzip on;
-    gzip_vary on;
-    gzip_min_length 1024;
-    gzip_proxied expired no-cache no-store private auth;
-    gzip_types text/plain text/css text/xml text/javascript application/x-javascript application/xml application/javascript application/json;
-
-    # Security Headers
-    add_header X-Frame-Options "SAMEORIGIN" always;
-    add_header X-XSS-Protection "1; mode=block" always;
-    add_header X-Content-Type-Options "nosniff" always;
-    add_header Referrer-Policy "no-referrer-when-downgrade" always;
-
-    # Block direct execution of PHP in storage and assets directories
-    location ~* ^/(storage|assets)/.*\.php$ {
-        deny all;
-        return 404;
-    }
-
-    # Block PHP-FPM internal status and ping endpoints
-    location ~ ^/(status|ping)$ {
-        deny all;
-        return 404;
-    }
-
-    # Static Assets Caching
-    location ~* \.(jpg|jpeg|png|gif|ico|css|js|woff|woff2|ttf|svg|webp|avif)$ {
-        expires 1y;
-        add_header Cache-Control "public, no-transform";
-        access_log off;
-        log_not_found off;
-        try_files \$uri =404;
-    }
-
-    # Storage Symlink Access - Static Serving Only, Execution Blocked
-    location ^~ /storage/ {
-        alias /var/www/html/storage/app/public/;
-        expires 30d;
-        add_header Cache-Control "public";
-        add_header X-Content-Type-Options "nosniff" always;
-        access_log off;
-
-        # Strictly block script execution inside storage directory
-        location ~* \.(php|php[0-9]|phtml|phar|sh|pl|py|cgi|htaccess|bat|exe)$ {
-            deny all;
-            return 404;
-        }
-    }
-
-    # Main Application Route
-    location / {
-        try_files \$uri \$uri/ /index.php?\$query_string;
-    }
-
-    # Prevent Access to Hidden Files (.env, .git, etc.)
-    location ~ /\.(?!well-known).* {
-        deny all;
-    }
-
-    # PHP-FPM FastCGI Handler
-    location ~ \.php$ {
-        fastcgi_pass app:9000;
-        fastcgi_index index.php;
-        fastcgi_param SCRIPT_FILENAME \$realpath_root\$fastcgi_script_name;
-        include fastcgi_params;
-
-        fastcgi_connect_timeout 10s;
-        fastcgi_send_timeout 60s;
-        fastcgi_read_timeout 60s;
-
-        fastcgi_buffer_size 128k;
-        fastcgi_buffers 4 256k;
-        fastcgi_busy_buffers_size 256k;
-
-        fastcgi_param HTTPS on;
-        fastcgi_param HTTP_SCHEME https;
-    }
-
-    error_page 404 /index.php;
-}
-NGINX_EOF
-
-# 7. Perbarui .env untuk domain HTTPS
-echo "📝 [6/6] Menyesuaikan APP_URL dan SESSION_SECURE_COOKIE di .env..."
-sed -i "s|^APP_URL=.*|APP_URL=https://$DOMAIN|g" "$APP_DIR/.env"
-sed -i 's|^SESSION_SECURE_COOKIE=.*|SESSION_SECURE_COOKIE=true|g' "$APP_DIR/.env"
-
-# Jalankan ulang stack docker
-echo "🚀 Menjalankan ulang container web & app..."
-docker compose -f docker-compose.prod.yml up -d
-docker compose -f docker-compose.prod.yml exec app php artisan optimize:clear
-docker compose -f docker-compose.prod.yml exec app php artisan config:cache
-docker compose -f docker-compose.prod.yml exec app php artisan route:cache
-docker compose -f docker-compose.prod.yml exec app php artisan view:cache
-
-# Setup auto renewal cron jika belum ada
-CRON_RENEW="0 3 * * 1 certbot renew --quiet --deploy-hook \"docker compose -f /var/www/walhi_app/docker-compose.prod.yml restart web\""
-(crontab -l 2>/dev/null | grep -Fv 'certbot renew' ; echo "$CRON_RENEW") | crontab -
+echo "🧪 Menguji perpanjangan otomatis (dry run)..."
+if certbot renew --dry-run --cert-name "$DOMAIN"; then
+    echo "   ✅ Perpanjangan otomatis berfungsi."
+else
+    echo "   ⚠️  Dry run perpanjangan gagal — periksa /var/log/letsencrypt/letsencrypt.log"
+fi
 
 echo ""
 echo "==================================================================="
-echo "  🎉 SUKSES! SSL HTTPS BERHASIL DIAKTIFKAN!"
-echo "  Silakan buka: https://$DOMAIN"
+echo "  🎉 HTTPS aktif: https://$DOMAIN"
+echo "  Sertifikat diperpanjang otomatis (webroot) dan nginx di-reload."
 echo "==================================================================="
-

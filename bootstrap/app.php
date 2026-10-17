@@ -24,7 +24,11 @@ return Application::configure(basePath: dirname(__DIR__))
         );
 
         $middleware->trustProxies(
-            at: ['127.0.0.1', '10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16'],
+            // nginx is the edge server and passes the client address as REMOTE_ADDR (with
+            // real_ip for Cloudflare), so no proxy is trusted by default. Set TRUSTED_PROXIES
+            // only when another reverse proxy sits in front. Read with env(): configuration
+            // is not loaded yet when this callback runs (container env vars are always set).
+            at: array_values(array_filter(array_map('trim', explode(',', (string) env('TRUSTED_PROXIES', ''))))),
             headers: Request::HEADER_X_FORWARDED_FOR |
                      Request::HEADER_X_FORWARDED_HOST |
                      Request::HEADER_X_FORWARDED_PORT |

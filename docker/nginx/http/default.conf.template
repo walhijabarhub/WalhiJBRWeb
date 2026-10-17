@@ -1,0 +1,17 @@
+# HTTP-only mode (NGINX_CONF=http): local runs and the first start on a new server,
+# before a certificate exists. Switch to NGINX_CONF=https after running setup-ssl.sh.
+
+include /etc/nginx/realip/*.conf;
+
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name _;
+
+    location ^~ /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+        default_type text/plain;
+    }
+
+    include /etc/nginx/snippets/laravel.conf;
+}
