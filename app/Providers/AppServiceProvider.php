@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password as PasswordRule;
 
 class AppServiceProvider extends ServiceProvider
@@ -64,7 +65,7 @@ class AppServiceProvider extends ServiceProvider
         // Login attempts — keyed by email + IP and globally by IP to prevent brute-force & spraying
         RateLimiter::for('login', function (Request $request) {
             return [
-                Limit::perMinute(5)->by($request->input('email').'|'.$request->ip()),
+                Limit::perMinute(5)->by(Str::lower(trim((string) $request->input('email'))).'|'.$request->ip()),
                 Limit::perMinute(20)->by($request->ip()),
             ];
         });
