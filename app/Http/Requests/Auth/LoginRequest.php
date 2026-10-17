@@ -73,6 +73,9 @@ class LoginRequest extends FormRequest
 
         RateLimiter::clear($this->throttleKey());
 
+        // Same as Auth::attempt(): upgrade the stored hash when hashing settings change.
+        Auth::getProvider()->rehashPasswordIfRequired($user, ['password' => (string) $this->input('password')]);
+
         return $user;
     }
 
@@ -132,8 +135,11 @@ class LoginRequest extends FormRequest
         }
 
         if (str_contains($login, '@')) {
+            // Exact spelling first, then lowercase, so case-sensitive databases still match.
+            $typed = trim((string) $this->input('email'));
+
             return $this->resolvedUser = filter_var($login, FILTER_VALIDATE_EMAIL)
-                ? User::where('email', $login)->first()
+                ? User::whereIn('email', array_unique([$typed, $login]))->orderByRaw('email = ? desc', [$typed])->first()
                 : null;
         }
 

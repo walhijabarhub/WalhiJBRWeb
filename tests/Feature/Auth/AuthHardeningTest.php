@@ -90,6 +90,40 @@ class AuthHardeningTest extends TestCase
         $this->actingAs($admin)->get(route('two-factor.show'))->assertOk()->assertSee('<svg', false);
     }
 
+    public function test_profile_is_also_behind_two_factor_enrolment(): void
+    {
+        config(['auth.two_factor.enforced' => true]);
+        $admin = User::factory()->create(['role' => UserRole::Admin->value]);
+
+        $this->actingAs($admin)->get('/profile')->assertRedirect(route('two-factor.show'));
+        $this->actingAs($admin)->delete('/profile', ['password' => 'password'])->assertRedirect(route('two-factor.show'));
+        $this->assertModelExists($admin);
+    }
+
+    public function test_successful_login_rehashes_outdated_password(): void
+    {
+        $user = User::factory()->create([
+            'email' => 'lama@walhijabar.or.id',
+            'password' => Hash::make('password', ['rounds' => 4]),
+        ]);
+        config(['hashing.bcrypt.rounds' => 5]);
+
+        $this->login('lama@walhijabar.or.id');
+
+        $this->assertAuthenticatedAs($user);
+        $this->assertFalse(Hash::needsRehash($user->fresh()->password));
+    }
+
+    public function test_password_reset_mail_failure_does_not_change_response(): void
+    {
+        User::factory()->create(['email' => 'ada@walhijabar.or.id']);
+        Notification::shouldReceive('send')->andThrow(new \RuntimeException('SMTP down'));
+
+        $this->post('/forgot-password', ['email' => 'ada@walhijabar.or.id'])
+            ->assertSessionHasNoErrors()
+            ->assertSessionHas('status');
+    }
+
     public function test_enrolment_requires_a_valid_code_and_shows_recovery_codes_once(): void
     {
         config(['auth.two_factor.enforced' => true]);
