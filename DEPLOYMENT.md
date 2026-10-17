@@ -250,7 +250,7 @@ flowchart LR
    ```bash
    ssh-keygen -t ed25519 -C "github-actions-walhi-deploy" -f ~/.ssh/id_ed25519_deploy -N ""
    cat ~/.ssh/id_ed25519_deploy.pub >> ~/.ssh/authorized_keys
-   ssh-keyscan -t ed25519 localhost | ssh-keygen -lf -   # salin fingerprint SHA256:...
+   ssh-keyscan -t ecdsa localhost | ssh-keygen -lf -     # salin fingerprint SHA256:... (kunci ECDSA)
    ```
 2. **Secrets** (Settings → Secrets and variables → Actions):
 
@@ -260,12 +260,9 @@ flowchart LR
    | `VPS_USERNAME` | User SSH dengan akses docker |
    | `VPS_SSH_KEY` | Isi private key `~/.ssh/id_ed25519_deploy` |
    | `VPS_SSH_PORT` | Port SSH (default 22) |
-   | `VPS_SSH_FINGERPRINT` | Fingerprint host key, format `SHA256:...` |
+   | `VPS_SSH_FINGERPRINT` | Fingerprint host key **ECDSA**, format `SHA256:...` (tipe kunci yang dipakai klien SSH di Actions) |
 3. **Environment `production`** (Settings → Environments): tambahkan *required reviewers* agar deploy perlu persetujuan.
-4. **Akses image GHCR di VPS:** jadikan package `walhi_larafel` *public* (Packages → Package settings), **atau** login sekali di VPS dengan token `read:packages`:
-   ```bash
-   echo "<TOKEN>" | docker login ghcr.io -u <github-username> --password-stdin
-   ```
+4. **Akses image GHCR di VPS:** otomatis. Job deploy login ke `ghcr.io` memakai `GITHUB_TOKEN` yang hanya berlaku selama job berjalan, lalu logout lagi, sehingga package boleh tetap private. Untuk deploy manual dengan image dari GHCR, login sendiri sementara dengan token `read:packages`.
 5. Pastikan **GitHub Actions aktif** untuk akun/repo (masalah billing pada akun membuat semua job gagal start).
 
 ### Deploy manual dari VPS

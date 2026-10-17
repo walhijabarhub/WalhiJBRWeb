@@ -102,6 +102,9 @@ jobs:
     needs: build-image
     # Configure required reviewers for this environment in the repository settings.
     environment: production
+    permissions:
+      contents: read
+      packages: read # short-lived GITHUB_TOKEN lets the VPS pull the private image
 
     steps:
       - name: Execute deployment on VPS via SSH
@@ -109,14 +112,17 @@ jobs:
         env:
           DEPLOY_SHA: ${{ github.sha }}
           APP_IMAGE: ${{ needs.build-image.outputs.image }}
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_SSH_PORT || 22 }}
-          # SHA256 host key fingerprint, e.g. from: ssh-keyscan -t ed25519 HOST | ssh-keygen -lf -
+          # SHA256 fingerprint of the host's ECDSA key (the key type drone-ssh negotiates first):
+          #   ssh-keyscan -t ecdsa HOST | ssh-keygen -lf -
           fingerprint: ${{ secrets.VPS_SSH_FINGERPRINT }}
-          envs: DEPLOY_SHA,APP_IMAGE
+          envs: DEPLOY_SHA,APP_IMAGE,GHCR_USER,GHCR_TOKEN
           script: |
             set -e
             cd /var/www/walhi_app
@@ -124,4 +130,8 @@ jobs:
             # Use the deploy scripts from the commit being deployed, not the old ones on disk.
             git checkout "$DEPLOY_SHA" -- deploy.sh docker-backup.sh
             chmod +x deploy.sh docker-backup.sh
+            # Log in with the job's token (valid only while this job runs) and always log out,
+            # so no long-lived registry credential stays on the server.
+            trap 'docker logout ghcr.io >/dev/null 2>&1 || true' EXIT
+            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
             APP_IMAGE="$APP_IMAGE" ./deploy.sh production "$DEPLOY_SHA"
