@@ -72,9 +72,19 @@ if [ ! -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
 fi
 $COMPOSE up -d web
 
-# 4. Issue the certificate. An existing certificate that was issued with the old
+# 4. Reload nginx after every issue/renewal (used by certbot's systemd timer). Installed
+#    before issuing so a forced re-issue reloads nginx as well.
+echo "🔁 [4/6] Memasang hook reload nginx setelah penerbitan/perpanjangan..."
+mkdir -p "$(dirname "$HOOK")"
+cat > "$HOOK" <<HOOK_EOF
+#!/bin/sh
+$COMPOSE exec -T web nginx -s reload
+HOOK_EOF
+chmod 755 "$HOOK"
+
+# 5. Issue the certificate. An existing certificate that was issued with the old
 #    standalone method is re-issued once so its renewal config switches to webroot.
-echo "📜 [4/6] Menerbitkan sertifikat..."
+echo "📜 [5/6] Menerbitkan sertifikat..."
 EXTRA_ARGS=()
 RENEWAL_CONF="/etc/letsencrypt/renewal/$DOMAIN.conf"
 if [ -f "$RENEWAL_CONF" ] && grep -q "authenticator = standalone" "$RENEWAL_CONF"; then
@@ -87,15 +97,6 @@ certbot certonly --webroot -w "$WEBROOT" \
     -d "$DOMAIN" -d "www.$DOMAIN" \
     --non-interactive --agree-tos -m "$EMAIL" \
     --keep-until-expiring ${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}
-
-# 5. Reload nginx after every renewal (used by certbot's systemd timer and cron alike)
-echo "🔁 [5/6] Memasang hook reload nginx setelah perpanjangan..."
-mkdir -p "$(dirname "$HOOK")"
-cat > "$HOOK" <<HOOK_EOF
-#!/bin/sh
-$COMPOSE exec -T web nginx -s reload
-HOOK_EOF
-chmod 755 "$HOOK"
 
 # Remove the old cron entry that stopped/restarted the web container.
 (crontab -l 2>/dev/null | grep -Fv 'certbot renew' || true) | crontab -
@@ -110,6 +111,8 @@ set_env NGINX_CONF https
 set_env APP_URL "https://$DOMAIN"
 set_env SESSION_SECURE_COOKIE true
 $COMPOSE up -d
+# Make sure the running nginx serves the certificate that was just issued.
+$COMPOSE restart web
 
 echo "🧪 Menguji perpanjangan otomatis (dry run)..."
 if certbot renew --dry-run --cert-name "$DOMAIN"; then

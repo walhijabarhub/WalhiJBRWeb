@@ -54,7 +54,7 @@ if ! docker ps --format '{{.Names}}' | grep -q "^${DB_CONTAINER}$"; then
 fi
 
 DB_FILE="$BACKUP_DIR/${PREFIX}_mysql_$TIMESTAMP.sql.gz"
-docker exec "$DB_CONTAINER" sh -c 'MYSQL_PWD="$MYSQL_PASSWORD" exec mysqldump --single-transaction --quick --routines --triggers -u"$MYSQL_USER" "$MYSQL_DATABASE"' \
+docker exec "$DB_CONTAINER" sh -c 'MYSQL_PWD="$MYSQL_PASSWORD" exec mysqldump --no-tablespaces --single-transaction --quick --routines --triggers -u"$MYSQL_USER" "$MYSQL_DATABASE"' \
     | gzip > "$DB_FILE"
 
 # pipefail already stops on a failed dump; also reject truncated or empty output.
