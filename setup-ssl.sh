@@ -36,13 +36,18 @@ if [ ! -f .env ]; then
     exit 1
 fi
 
-# Set KEY=VALUE in .env (replace when present, append otherwise).
+# Set KEY=VALUE in .env (replace when present, append otherwise). Portable (no sed -i).
 set_env() {
+    local tmp
+    tmp="$(mktemp)"
     if grep -q "^$1=" .env; then
-        sed -i "s|^$1=.*|$1=$2|" .env
+        awk -v k="$1" -v v="$2" 'index($0, k "=") == 1 { print k "=" v; next } { print }' .env > "$tmp"
     else
-        echo "$1=$2" >> .env
+        cat .env > "$tmp"
+        echo "$1=$2" >> "$tmp"
     fi
+    cat "$tmp" > .env
+    rm -f "$tmp"
 }
 
 # 1. DNS must already point at this server

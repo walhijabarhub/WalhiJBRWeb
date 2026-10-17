@@ -49,3 +49,6 @@ Thumbs.db
 /database/seeders/admins.local.json
 *.local.json
 
+
+# Deployment state written by deploy.sh on the server
+/.deploy/

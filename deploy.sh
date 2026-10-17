@@ -1,178 +1,236 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────────────────────
-# WALHI Jawa Barat — Production Safe Auto-Deployment Script
-# Target Environment: Ubuntu/Debian VPS with Docker Compose
-# Target Branch: production
+# WALHI Jawa Barat — Production deployment (Docker Compose, single VPS)
 #
-# Guaranteed Database Safety Invariants:
-# 1. Automated pre-deploy backup before any code/schema changes
-# 2. NEVER execute destructive migrations (migrate:fresh / migrate:refresh)
-# 3. NEVER execute automatic seeders (SEED_ON_START=false)
-# 4. Graceful maintenance mode with secret bypass
-# 5. Production cache optimization and health check
+# Usage: ./deploy.sh [branch] [commit]
+#   branch  default: production
+#   commit  default: tip of origin/<branch> (CI passes the exact commit it tested)
+#
+# Flow:
+#   1. Pre-flight checks (.env, required variables, disk space)
+#   2. Database + file backup (a failed backup aborts the deploy)
+#   3. Check out the commit and obtain its image, tagged with the commit SHA
+#      (pulled from GHCR when APP_IMAGE points to a registry, built locally otherwise)
+#   4. Maintenance mode (shared through Redis, so it survives container recreation)
+#   5. Migrations run with the NEW image before any container is swapped
+#   6. Swap app/worker/scheduler/web to the new image
+#   7. Health check through nginx; on failure roll back to the previous image
+#
+# Database safety: only `migrate --force` runs. Never migrate:fresh/refresh/reset,
+# never seeders. Schema changes are not rolled back automatically; restore from
+# the pre-deploy backup if a migration must be undone (see docker-restore.sh).
 # ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
+# `git reset --hard` below may rewrite this file while bash is still reading it,
+# so run from a private copy.
+if [ -z "${WALHI_DEPLOY_COPY:-}" ]; then
+    copy="$(mktemp /tmp/walhi-deploy.XXXXXX)"
+    cp "$0" "$copy"
+    WALHI_DEPLOY_COPY="$copy" exec bash "$copy" "$@"
+fi
+trap 'rm -f "$WALHI_DEPLOY_COPY"' EXIT
+
 TARGET_BRANCH="${1:-production}"
-APP_DIR="/var/www/walhi_app"
+TARGET_COMMIT="${2:-}"
+APP_DIR="${APP_DIR:-/var/www/walhi_app}"
 COMPOSE_FILE="docker-compose.prod.yml"
-DEPLOY_LOG="/var/log/walhi_deploy.log"
-TIMESTAMP=$(date +'%Y-%m-%d %H:%M:%S')
-DEPLOY_BYPASS="${DEPLOY_MAINTENANCE_KEY:-walhi-maintenance-bypass}"
+# Extra compose files (space-separated) and container names can be overridden for staging/testing.
+COMPOSE_FILES="${COMPOSE_FILES:-$COMPOSE_FILE}"
+export APP_CONTAINER="${APP_CONTAINER:-walhi_prod_app}"
+export DB_CONTAINER="${DB_CONTAINER:-walhi_prod_db}"
+WEB_CONTAINER="${WEB_CONTAINER:-walhi_prod_nginx}"
+DEPLOY_LOG="${DEPLOY_LOG:-/var/log/walhi_deploy.log}"
+STATE_DIR="$APP_DIR/.deploy"
 
 log() {
     local msg="[$(date +'%Y-%m-%d %H:%M:%S')] $1"
     echo "$msg"
-    # Append to log file if writable, otherwise ignore silently
     echo "$msg" >> "$DEPLOY_LOG" 2>/dev/null || true
 }
 
-error_exit() {
-    log "❌ ERROR: $1"
-    log "Deployment aborted. Bringing application back online if down..."
-    if command -v docker >/dev/null 2>&1 && [ -f "$COMPOSE_FILE" ]; then
-        docker compose -f "$COMPOSE_FILE" exec -T app php artisan up 2>/dev/null || true
+dc() {
+    local args=() file
+    for file in $COMPOSE_FILES; do args+=(-f "$file"); done
+    docker compose "${args[@]}" "$@"
+}
+
+# Set KEY=VALUE in .env (replace when present, append otherwise). Portable (no sed -i).
+set_env() {
+    local tmp
+    tmp="$(mktemp)"
+    if grep -q "^$1=" .env; then
+        awk -v k="$1" -v v="$2" 'index($0, k "=") == 1 { print k "=" v; next } { print }' .env > "$tmp"
+    else
+        cat .env > "$tmp"
+        echo "$1=$2" >> "$tmp"
     fi
+    cat "$tmp" > .env
+    rm -f "$tmp"
+}
+
+env_value() {
+    grep -E "^$1=" .env | tail -n 1 | cut -d= -f2- | sed -e 's/^"//' -e 's/"$//' || true
+}
+
+MAINTENANCE_ON=false
+maintenance_off() {
+    if [ "$MAINTENANCE_ON" = true ]; then
+        dc exec -T app php artisan up >/dev/null 2>&1 || true
+        MAINTENANCE_ON=false
+    fi
+}
+
+fail() {
+    log "❌ $1"
+    maintenance_off
     exit 1
 }
 
+# Any unexpected error must not leave the site in maintenance mode.
+trap 'log "❌ Error tak terduga di baris $LINENO"; maintenance_off' ERR
+
+cd "$APP_DIR"
+mkdir -p "$STATE_DIR"
+
 echo "═══════════════════════════════════════════════════════════════"
-echo "  🌿 WALHI Jawa Barat — Production Safe Auto-Deployment"
-echo "  Target Branch: $TARGET_BRANCH"
-echo "  Timestamp: $TIMESTAMP"
+echo "  🌿 WALHI Jawa Barat — Deploy (branch: $TARGET_BRANCH)"
 echo "═══════════════════════════════════════════════════════════════"
 
-# ── 1. Pre-flight Checks ──
-log "🔍 [1/9] Menjalankan pre-flight checks..."
+# ── 1. Pre-flight ─────────────────────────────────────────────────────────────
+log "🔍 [1/7] Pre-flight checks..."
+[ -f "$COMPOSE_FILE" ] || fail "$COMPOSE_FILE tidak ditemukan di $APP_DIR."
+[ -f .env ] || fail ".env produksi tidak ditemukan di $APP_DIR."
+docker compose version >/dev/null 2>&1 || fail "Docker Compose v2 tidak tersedia."
 
-# Ensure we are in the application root directory
-if [ -d "$APP_DIR" ]; then
-    cd "$APP_DIR"
+for var in APP_KEY DB_PASSWORD DB_ROOT_PASSWORD REDIS_PASSWORD; do
+    [ -n "$(env_value "$var")" ] || fail "Variabel $var wajib diisi di .env (lihat DEPLOYMENT.md → Upgrade)."
+done
+
+# A server that already has a certificate must keep serving HTTPS.
+SERVER_NAME="$(env_value NGINX_SERVER_NAME)"
+if [ -n "$SERVER_NAME" ] && [ -f "/etc/letsencrypt/live/$SERVER_NAME/fullchain.pem" ] && [ "$(env_value NGINX_CONF)" != "https" ]; then
+    log "   🔒 Sertifikat untuk $SERVER_NAME ditemukan; NGINX_CONF diset ke https."
+    set_env NGINX_CONF https
 fi
 
-if [ ! -f "$COMPOSE_FILE" ]; then
-    error_exit "File $COMPOSE_FILE tidak ditemukan di $(pwd)."
-fi
-
-if [ ! -f ".env" ]; then
-    error_exit "File .env produksi tidak ditemukan di $(pwd). Wajib siapkan .env sebelum deploy."
-fi
-
-# Check available disk space (require at least 1 GB free)
 AVAILABLE_KB=$(df -k . | awk 'NR==2 {print $4}')
-if [ "$AVAILABLE_KB" -lt 1048576 ]; then
-    error_exit "Ruang disk tidak mencukupi (sisa kurang dari 1 GB: ${AVAILABLE_KB} KB). Deploy dibatalkan."
-fi
+[ "$AVAILABLE_KB" -ge 2097152 ] || fail "Ruang disk kurang dari 2 GB (${AVAILABLE_KB} KB)."
 
-# Ensure docker & docker compose are functional
-if ! docker compose version >/dev/null 2>&1; then
-    error_exit "Docker Compose v2 tidak terpasang atau tidak aktif."
-fi
-
-log "✅ Pre-flight checks lolos."
-
-# ── 2. Automated Pre-Deployment Database Backup (Safety Net) ──
-log "💾 [2/9] Membuat snapshot backup database sebelum update..."
-chmod +x ./docker-backup.sh 2>/dev/null || true
-if [ -f "./docker-backup.sh" ]; then
-    ./docker-backup.sh --pre-deploy || {
-        log "⚠️ Peringatan: Script docker-backup.sh mengembalikan status non-zero, mencoba mysqldump langsung..."
-        BACKUP_DIR="./storage/backups"
-        mkdir -p "$BACKUP_DIR"
-        BACKUP_FILE="$BACKUP_DIR/walhi_predeploy_$(date +'%Y%m%d_%H%M%S').sql.gz"
-        if docker ps --format '{{.Names}}' | grep -q "^walhi_prod_db$"; then
-            docker exec walhi_prod_db sh -c 'exec mysqldump -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE"' | gzip > "$BACKUP_FILE"
-            log "✅ Backup darurat MySQL berhasil: $BACKUP_FILE"
-        fi
-    }
-    log "✅ Snapshot database pra-deployment tersimpan dengan aman."
+# ── 2. Backup ─────────────────────────────────────────────────────────────────
+log "💾 [2/7] Backup database & file sebelum deploy..."
+if docker ps --format '{{.Names}}' | grep -q "^${DB_CONTAINER}$"; then
+    if [ "${SKIP_BACKUP:-false}" = "true" ]; then
+        log "   ⚠️  SKIP_BACKUP=true — backup dilewati atas permintaan operator."
+    else
+        ./docker-backup.sh --pre-deploy || fail "Backup gagal; deploy dibatalkan agar data tetap aman."
+    fi
 else
-    log "⚠️ docker-backup.sh tidak ditemukan, melewati auto-backup."
+    log "   ℹ️  Database belum berjalan (deploy pertama) — backup dilewati."
 fi
 
-# ── 3. Enable Graceful Maintenance Mode ──
-log "🚧 [3/9] Mengaktifkan maintenance mode dengan bypass secret..."
-if docker ps --format '{{.Names}}' | grep -q "^walhi_prod_app$"; then
-    docker compose -f "$COMPOSE_FILE" exec -T app php artisan down \
-        --secret="$DEPLOY_BYPASS" \
-        --retry=60 \
-        --render="errors::503" 2>/dev/null || true
-    log "✅ Maintenance mode berhasil diaktifkan."
-fi
-
-# ── 4. Pull Latest Changes from Target Branch ──
-log "📥 [4/9] Mengambil pembaruan kode dari branch: $TARGET_BRANCH..."
-
-# Preserve custom SSL Nginx configuration if present
-SSL_CONFIG_TEMP=""
-if grep -q "ssl_certificate" "$APP_DIR/docker/nginx/default.conf" 2>/dev/null; then
-    SSL_CONFIG_TEMP="/tmp/walhi_nginx_ssl_$(date +%s).conf"
-    cp "$APP_DIR/docker/nginx/default.conf" "$SSL_CONFIG_TEMP"
-fi
-
+# ── 3. Code & image ───────────────────────────────────────────────────────────
+log "📥 [3/7] Mengambil kode $TARGET_BRANCH..."
 git fetch origin "$TARGET_BRANCH"
-CURRENT_HASH=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
-git reset --hard "origin/$TARGET_BRANCH"
-NEW_HASH=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+git reset --hard "${TARGET_COMMIT:-origin/$TARGET_BRANCH}"
+NEW_TAG="$(git rev-parse --short=12 HEAD)"
+PREVIOUS_TAG="$(cat "$STATE_DIR/last_good_tag" 2>/dev/null || env_value IMAGE_TAG)"
+PREVIOUS_TAG="${PREVIOUS_TAG:-latest}"
+APP_IMAGE="${APP_IMAGE:-$(env_value APP_IMAGE)}"
+APP_IMAGE="${APP_IMAGE:-walhi_larafel-app}"
+log "   Versi: ${PREVIOUS_TAG} ➔ ${NEW_TAG} (image: $APP_IMAGE)"
 
-# Restore SSL Nginx configuration and ensure SSL volume in docker-compose.prod.yml
-if [ -n "$SSL_CONFIG_TEMP" ] && [ -f "$SSL_CONFIG_TEMP" ]; then
-    cp "$SSL_CONFIG_TEMP" "$APP_DIR/docker/nginx/default.conf"
-    rm -f "$SSL_CONFIG_TEMP"
-    log "🔒 Konfigurasi SSL HTTPS Nginx berhasil dipulihkan."
-fi
-
-if [ -d "/etc/letsencrypt/live" ] && ! grep -q '/etc/letsencrypt:/etc/letsencrypt:ro' docker-compose.prod.yml; then
-    sed -i '/- .\/docker\/nginx\/default.conf/i \      - /etc/letsencrypt:/etc/letsencrypt:ro' docker-compose.prod.yml
-    log "🔒 Volume /etc/letsencrypt berhasil dipulihkan di docker-compose.prod.yml."
-fi
-
-log "✅ Git sync selesai: $CURRENT_HASH ➔ $NEW_HASH"
-
-# ── 5. Rebuild and Restart Application Containers ──
-log "🐳 [5/9] Membangun ulang dan menyalakan container produksi..."
-docker compose -f "$COMPOSE_FILE" up -d --build --remove-orphans
-log "✅ Container Docker berhasil di-build dan berjalan."
-
-# Wait for application container to be ready
-log "⏳ Menunggu container app siap..."
-sleep 5
-
-# ── 6. Safe Database Migrations (Non-Destructive ONLY) ──
-# CRITICAL GUARDRAIL: Only 'migrate --force' is permitted.
-# NEVER run migrate:fresh, migrate:refresh, migrate:reset, or db:seed.
-log "🗄️  [6/9] Menjalankan migrasi database non-destruktif (migrate --force)..."
-docker compose -f "$COMPOSE_FILE" exec -T app php artisan migrate --force
-log "✅ Migrasi database berhasil diaplikasikan tanpa mengubah data yang sudah ada."
-
-# ── 7. Production Optimizations & Cache ──
-log "⚡ [7/9] Mengoptimasi cache konfigurasi, routing, view, dan storage link..."
-docker compose -f "$COMPOSE_FILE" exec -T app php artisan config:cache
-docker compose -f "$COMPOSE_FILE" exec -T app php artisan route:cache
-docker compose -f "$COMPOSE_FILE" exec -T app php artisan view:cache
-docker compose -f "$COMPOSE_FILE" exec -T app php artisan storage:link --force 2>/dev/null || true
-log "✅ Cache dan storage symlink berhasil dioptimasi."
-
-# ── 8. Disable Maintenance Mode (Bring Application Live) ──
-log "🌐 [8/9] Menonaktifkan maintenance mode..."
-docker compose -f "$COMPOSE_FILE" exec -T app php artisan up
-log "✅ Aplikasi kembali LIVE dan melayani traffic pengunjung."
-
-# ── 9. Post-Deployment Health Check ──
-log "🩺 [9/9] Melakukan health check aplikasi..."
-HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:80" || echo "failed")
-
-if [ "$HTTP_STATUS" = "200" ] || [ "$HTTP_STATUS" = "301" ] || [ "$HTTP_STATUS" = "302" ]; then
-    log "✅ Health check BERHASIL (HTTP Status: $HTTP_STATUS)."
+export APP_IMAGE IMAGE_TAG="$NEW_TAG"
+if [[ "$APP_IMAGE" == */* ]]; then
+    log "🐳 Menarik image $APP_IMAGE:$NEW_TAG dari registry..."
+    docker pull "$APP_IMAGE:$NEW_TAG" || fail "Image $APP_IMAGE:$NEW_TAG tidak ditemukan di registry."
 else
-    log "⚠️ Perhatian: Health check mengembalikan HTTP Status: $HTTP_STATUS. Silakan periksa log aplikasi."
+    log "🐳 Membangun image $APP_IMAGE:$NEW_TAG di server..."
+    dc build app || fail "Build image gagal."
 fi
 
-# ── Cleanup old docker images ──
+# ── 4. Maintenance mode ───────────────────────────────────────────────────────
+log "🚧 [4/7] Mengaktifkan maintenance mode..."
+DEPLOY_SECRET="${DEPLOY_MAINTENANCE_KEY:-$(openssl rand -hex 16)}"
+if dc ps --status running --services 2>/dev/null | grep -q '^app$'; then
+    if dc exec -T app php artisan down --secret="$DEPLOY_SECRET" --retry=60 --render="errors::503" >/dev/null; then
+        MAINTENANCE_ON=true
+        log "   Bypass selama deploy: https://<domain>/$DEPLOY_SECRET (tidak dicatat di repo)"
+    fi
+fi
+
+# ── 5. Migrations with the new image, before swapping ─────────────────────────
+log "🗄️  [5/7] Migrasi database (non-destruktif) dengan image baru..."
+dc up -d --no-build --wait db redis || fail "Database/Redis tidak sehat; deploy dibatalkan."
+if ! dc run --rm --no-deps -e CONTAINER_ROLE=migrate app php artisan migrate --force; then
+    fail "Migrasi gagal. Versi lama tetap berjalan; periksa log lalu pulihkan dari backup pra-deploy jika skema berubah sebagian."
+fi
+
+# ── 6. Swap containers ────────────────────────────────────────────────────────
+log "🔄 [6/7] Menjalankan container versi $NEW_TAG..."
+set_env APP_IMAGE "$APP_IMAGE"
+set_env IMAGE_TAG "$NEW_TAG"
+dc up -d --no-build --remove-orphans
+# nginx config comes from bind-mounted templates that git reset may have changed;
+# restarting re-renders them (compose does not recreate web for file changes).
+dc restart web
+
+# ── 7. Health check & rollback ────────────────────────────────────────────────
+log "🩺 [7/7] Health check..."
+wait_healthy() {
+    for _ in $(seq 1 40); do
+        local app web
+        app=$(docker inspect -f '{{.State.Health.Status}}' "$APP_CONTAINER" 2>/dev/null || echo none)
+        web=$(docker inspect -f '{{.State.Health.Status}}' "$WEB_CONTAINER" 2>/dev/null || echo none)
+        [ "$app" = "healthy" ] && [ "$web" = "healthy" ] && return 0
+        sleep 3
+    done
+    return 1
+}
+
+http_check() {
+    local port host
+    if [ "$(env_value NGINX_CONF)" = "https" ]; then
+        port="$(env_value HTTPS_PORT)"; port="${port:-443}"; host="$(env_value NGINX_SERVER_NAME)"
+        curl -fsS -o /dev/null --max-time 10 --resolve "$host:$port:127.0.0.1" "https://$host:$port/up"
+    else
+        port="$(env_value HTTP_PORT)"; port="${port:-80}"
+        curl -fsS -o /dev/null --max-time 10 -H "Host: localhost" "http://127.0.0.1:$port/up"
+    fi
+}
+
+HEALTHY=false
+if wait_healthy; then
+    maintenance_off
+    for _ in 1 2 3 4 5; do
+        if http_check; then HEALTHY=true; break; fi
+        sleep 3
+    done
+fi
+
+if [ "$HEALTHY" != true ]; then
+    log "❌ Health check gagal untuk $NEW_TAG — rollback ke $PREVIOUS_TAG..."
+    set_env IMAGE_TAG "$PREVIOUS_TAG"
+    IMAGE_TAG="$PREVIOUS_TAG" dc up -d --no-build --remove-orphans || true
+    dc restart web || true
+    maintenance_off
+    if wait_healthy && http_check; then
+        log "   Rollback selesai; versi $PREVIOUS_TAG kembali melayani. Migrasi yang sudah berjalan TIDAK dibatalkan otomatis."
+    else
+        log "   ⚠️  Rollback dijalankan tetapi health check masih gagal — periksa server segera."
+    fi
+    exit 1
+fi
+
+echo "$NEW_TAG" > "$STATE_DIR/last_good_tag"
+log "✅ Deploy $NEW_TAG berhasil dan sehat."
+
+# Keep the current and previous image for rollback; remove older ones.
+docker images "$APP_IMAGE" --format '{{.Tag}}' \
+    | grep -vxE "($NEW_TAG|$PREVIOUS_TAG|latest)" \
+    | while read -r tag; do docker rmi "$APP_IMAGE:$tag" >/dev/null 2>&1 || true; done
 docker image prune -f >/dev/null 2>&1 || true
 
 log "═══════════════════════════════════════════════════════════════"
-log "  🎉 DEPLOYMENT BERHASIL KE BRANCH '$TARGET_BRANCH' ($NEW_HASH)"
-log "  Database Aman: Ter-backup & Migrasi Non-Destruktif"
+log "  🎉 DEPLOY BERHASIL: $TARGET_BRANCH @ $NEW_TAG"
 log "═══════════════════════════════════════════════════════════════"
-exit 0
