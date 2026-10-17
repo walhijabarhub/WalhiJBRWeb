@@ -4,53 +4,57 @@ namespace App\Http\Controllers;
 
 use App\Enums\ContentCategory;
 use App\Models\Content;
+use App\Services\Content\ContentCache;
+use App\Services\Content\ViewCounter;
 use Artesaos\SEOTools\Facades\JsonLdMulti;
 use Artesaos\SEOTools\Facades\OpenGraph;
 use Artesaos\SEOTools\Facades\SEOMeta;
 use Artesaos\SEOTools\Facades\TwitterCard;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 
 class PublicContentController extends Controller
 {
     public function home()
     {
-        $news = Content::ofCategory(ContentCategory::newsValues())
-            ->published()
-            ->orderBy('is_promoted', 'desc')
-            ->orderBy('publish_date', 'desc')
-            ->get();
+        $sections = Cache::remember(ContentCache::HOME, now()->addMinutes(10), function () {
+            // Only the featured item and six cards are shown, so never load every article.
+            $news = Content::ofCategory(ContentCategory::newsValues())
+                ->published()
+                ->orderBy('is_promoted', 'desc')
+                ->orderBy('publish_date', 'desc')
+                ->take(7)
+                ->get();
 
-        $featuredNews = $news->first();
-        $newsCards = $news->skip(1)->take(6);
+            return [
+                'featuredNews' => $news->first(),
+                'newsCards' => $news->skip(1)->values(),
+                'reports' => Content::ofCategory(ContentCategory::LaporanTahunan)
+                    ->published()
+                    ->orderBy('publish_date', 'desc')
+                    ->take(3)
+                    ->get(),
+                'sejarah' => Content::ofCategory(ContentCategory::Sejarah)
+                    ->published()
+                    ->first(),
+                'stats' => Content::ofCategory(ContentCategory::Statistik)
+                    ->published()
+                    ->orderBy('id', 'asc')
+                    ->get(),
+                'issues' => Content::ofCategory(ContentCategory::IsuKritis)
+                    ->published()
+                    ->orderBy('id', 'asc')
+                    ->get(),
+                'banners' => Content::ofCategory(ContentCategory::Banner)
+                    ->published()
+                    ->orderBy('is_promoted', 'desc')
+                    ->orderBy('id', 'asc')
+                    ->get(),
+            ];
+        });
 
-        $reports = Content::ofCategory(ContentCategory::LaporanTahunan)
-            ->published()
-            ->orderBy('publish_date', 'desc')
-            ->take(3)
-            ->get();
-
-        $sejarah = Content::ofCategory(ContentCategory::Sejarah)
-            ->published()
-            ->first();
-
-        $stats = Content::ofCategory(ContentCategory::Statistik)
-            ->published()
-            ->orderBy('id', 'asc')
-            ->get();
-
-        $issues = Content::ofCategory(ContentCategory::IsuKritis)
-            ->published()
-            ->orderBy('id', 'asc')
-            ->get();
-
-        $banners = Content::ofCategory(ContentCategory::Banner)
-            ->published()
-            ->orderBy('is_promoted', 'desc')
-            ->orderBy('id', 'asc')
-            ->get();
-
-        return view('welcome', compact('featuredNews', 'newsCards', 'reports', 'sejarah', 'stats', 'issues', 'banners'));
+        return view('welcome', $sections);
     }
 
     public function blog(Request $request)
@@ -60,12 +64,7 @@ class PublicContentController extends Controller
         $query = Content::ofCategory(ContentCategory::Blog)->published();
 
         if ($categoryFilter && $categoryFilter !== 'Semua') {
-            $escapedFilter = str_replace(['%', '_'], ['\%', '\_'], $categoryFilter);
-            $query->where(function ($q) use ($escapedFilter) {
-                $q->where('tags', 'like', "%{$escapedFilter}%")
-                    ->orWhere('title', 'like', "%{$escapedFilter}%")
-                    ->orWhere('body', 'like', "%{$escapedFilter}%");
-            });
+            $query->search((string) $categoryFilter);
         }
 
         $items = $query->orderBy('publish_date', 'desc')->paginate(9)->withQueryString();
@@ -94,7 +93,7 @@ class PublicContentController extends Controller
         // Increment views count with session deduplication
         $sessionKey = 'viewed_content_'.$item->id;
         if (! session()->has($sessionKey)) {
-            $item->increment('views');
+            ViewCounter::record($item);
             session()->put($sessionKey, true);
         }
 

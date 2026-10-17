@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Content;
+use App\Services\Content\ViewCounter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -86,7 +87,7 @@ class DocumentDownloadController extends Controller
         // 6. Deduplicated view / download counter increment
         $sessionKey = 'downloaded_content_'.$content->id;
         if (! session()->has($sessionKey)) {
-            $content->increment('views');
+            ViewCounter::record($content);
             session()->put($sessionKey, true);
         }
 
