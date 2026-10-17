@@ -108,9 +108,9 @@
                 foreach ($banners as $b) {
                     $parts = explode('|', $b->tags ?? '');
                     $btn1Text = !empty($parts[0]) ? $parts[0] : 'Isu Strategis';
-                    $btn1Url  = !empty($parts[1]) ? $parts[1] : '#isu';
+                    $btn1Url  = !empty($parts[1]) ? \App\Rules\SafeUrl::sanitize($parts[1]) : '#isu';
                     $btn2Text = !empty($parts[2]) ? $parts[2] : 'Lihat Publikasi';
-                    $btn2Url  = !empty($parts[3]) ? $parts[3] : route('siaran-pers');
+                    $btn2Url  = !empty($parts[3]) ? \App\Rules\SafeUrl::sanitize($parts[3]) : route('siaran-pers');
 
                     $img = asset('iqon/Container.png');
                     if ($b->image_url) {
@@ -142,54 +142,18 @@
         <main class="w-full">
             <!-- Hero Banner Slider Section -->
             <section 
-                x-data="{
-                    active: 0,
-                    total: {{ count($bannerSlides) }},
-                    timer: null,
-                    touchStartX: 0,
-                    touchEndX: 0,
-                    autoplay() {
-                        this.stop();
-                        if (this.total > 1) {
-                            this.timer = setInterval(() => { this.next(); }, 6000);
-                        }
-                    },
-                    stop() {
-                        if (this.timer) clearInterval(this.timer);
-                    },
-                    next() {
-                        this.active = (this.active + 1) % this.total;
-                    },
-                    prev() {
-                        this.active = (this.active - 1 + this.total) % this.total;
-                    },
-                    goTo(idx) {
-                        this.active = idx;
-                    },
-                    handleTouchStart(e) {
-                        this.touchStartX = e.changedTouches[0].screenX;
-                    },
-                    handleTouchEnd(e) {
-                        this.touchEndX = e.changedTouches[0].screenX;
-                        if (this.touchStartX - this.touchEndX > 40) {
-                            this.next();
-                        } else if (this.touchEndX - this.touchStartX > 40) {
-                            this.prev();
-                        }
-                    }
-                }"
-                x-init="autoplay()"
-                @mouseenter="stop()"
-                @mouseleave="autoplay()"
-                @touchstart="handleTouchStart($event)"
-                @touchend="handleTouchEnd($event)"
+                x-data="heroSlider({{ count($bannerSlides) }})"
+                @mouseenter="stop"
+                @mouseleave="autoplay"
+                @touchstart="handleTouchStart"
+                @touchend="handleTouchEnd"
                 class="relative min-h-[600px] md:h-[836px] w-full overflow-hidden bg-brand-dark text-brand-cream select-none"
                 aria-label="Hero Banner Slider"
             >
                 <!-- Sliding Track -->
                 <div 
                     class="flex w-full h-full transition-transform duration-700 ease-in-out"
-                    :style="'transform: translateX(-' + (active * 100) + '%);'"
+                    :style="trackStyle"
                 >
                     @foreach($bannerSlides as $index => $slide)
                         <div 
@@ -249,7 +213,7 @@
                     <div class="absolute inset-y-0 left-4 sm:left-8 flex items-center z-20 pointer-events-none">
                         <button 
                             type="button"
-                            @click="prev(); autoplay()" 
+                            @click="prevAndRestart" 
                             class="pointer-events-auto w-11 h-11 md:w-13 md:h-13 rounded-full bg-black/40 hover:bg-brand-orange text-brand-cream border border-white/20 flex items-center justify-center backdrop-blur-md transition-all duration-300 hover:scale-105 cursor-pointer"
                             aria-label="Slide Sebelumnya"
                         >
@@ -259,7 +223,7 @@
                     <div class="absolute inset-y-0 right-4 sm:right-8 flex items-center z-20 pointer-events-none">
                         <button 
                             type="button"
-                            @click="next(); autoplay()" 
+                            @click="nextAndRestart" 
                             class="pointer-events-auto w-11 h-11 md:w-13 md:h-13 rounded-full bg-black/40 hover:bg-brand-orange text-brand-cream border border-white/20 flex items-center justify-center backdrop-blur-md transition-all duration-300 hover:scale-105 cursor-pointer"
                             aria-label="Slide Selanjutnya"
                         >
@@ -272,9 +236,9 @@
                         @foreach($bannerSlides as $idx => $s)
                             <button 
                                 type="button"
-                                @click="goTo({{ $idx }}); autoplay()"
+                                @click="goToAndRestart({{ $idx }})"
                                 class="transition-all duration-300 cursor-pointer rounded-full"
-                                :class="active === {{ $idx }} ? 'w-8 h-2.5 bg-brand-orange' : 'w-2.5 h-2.5 bg-white/50 hover:bg-white/90'"
+                                :class="bulletClass({{ $idx }})"
                                 aria-label="Menuju Slide {{ $idx + 1 }}"
                             ></button>
                         @endforeach

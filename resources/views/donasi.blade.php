@@ -191,7 +191,7 @@
                                     “Ingin berdonasi untuk lingkungan hidup? Hubungi WA dibawah ini untuk mengetahui manfaat apa saja yang akan kamu terima :)”
                                 </p>
                                 <div style="margin-top: 8px; display: flex; justify-content: center;">
-                                    <a href="https://wa.me/6282119821159?text=Halo%20WALHI%20Jawa%20Barat,%20saya%20ingin%20berdonasi%20untuk%20lingkungan%20hidup.%20Mohon%20informasi%20manfaat%20apa%20saja%20yang%20akan%20saya%20terima%20:)" target="_blank" style="display: inline-flex; align-items: center; justify-content: center; gap: 10px; background: #D95C3F; color: #FFFFFF; padding: 16px 32px; font-weight: 700; font-size: 16px; text-transform: uppercase; text-decoration: none; border: 2px solid #FFFFFF; box-shadow: 3px 3px 0px 0px #1D1D1D; transition: all 0.2s;" onmouseover="this.style.background='#c44e32'" onmouseout="this.style.background='#D95C3F'">
+                                    <a href="https://wa.me/6282119821159?text=Halo%20WALHI%20Jawa%20Barat,%20saya%20ingin%20berdonasi%20untuk%20lingkungan%20hidup.%20Mohon%20informasi%20manfaat%20apa%20saja%20yang%20akan%20saya%20terima%20:)" target="_blank" style="display: inline-flex; align-items: center; justify-content: center; gap: 10px; background: #D95C3F; color: #FFFFFF; padding: 16px 32px; font-weight: 700; font-size: 16px; text-transform: uppercase; text-decoration: none; border: 2px solid #FFFFFF; box-shadow: 3px 3px 0px 0px #1D1D1D; transition: all 0.2s;" data-hover-style="background:#c44e32" data-rest-style="background:#D95C3F">
                                         <i data-lucide="message-circle" style="width: 22px; height: 22px;"></i>
                                         <span>Hubungi WA WALHI Jabar (+62-821-1982-1159)</span>
                                     </a>
@@ -210,17 +210,17 @@
                                 </div>
                                 
                                 <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; width: 100%;" class="amount-grid">
-                                    <button type="button" class="amount-btn" onclick="selectPresetAmount(10000, this)" style="height: 60px; font-family: Montserrat, sans-serif; font-weight: 700; font-size: 16px;">Rp 10.000</button>
-                                    <button type="button" class="amount-btn" onclick="selectPresetAmount(25000, this)" style="height: 60px; font-family: Montserrat, sans-serif; font-weight: 700; font-size: 16px;">Rp 25.000</button>
-                                    <button type="button" class="amount-btn" onclick="selectPresetAmount(30000, this)" style="height: 60px; font-family: Montserrat, sans-serif; font-weight: 700; font-size: 16px;">Rp 30.000</button>
-                                    <button type="button" class="amount-btn" onclick="selectPresetAmount(50000, this)" style="height: 60px; font-family: Montserrat, sans-serif; font-weight: 700; font-size: 16px;">Rp 50.000</button>
-                                    <button type="button" class="amount-btn" onclick="selectPresetAmount(100000, this)" style="height: 60px; font-family: Montserrat, sans-serif; font-weight: 700; font-size: 16px;">Rp 100.000</button>
-                                    <button type="button" class="amount-btn" onclick="selectPresetAmount(150000, this)" style="height: 60px; font-family: Montserrat, sans-serif; font-weight: 700; font-size: 16px;">Rp 150.000</button>
+                                    <button type="button" class="amount-btn" data-on-click="selectPresetAmount" data-args='[10000]' style="height: 60px; font-family: Montserrat, sans-serif; font-weight: 700; font-size: 16px;">Rp 10.000</button>
+                                    <button type="button" class="amount-btn" data-on-click="selectPresetAmount" data-args='[25000]' style="height: 60px; font-family: Montserrat, sans-serif; font-weight: 700; font-size: 16px;">Rp 25.000</button>
+                                    <button type="button" class="amount-btn" data-on-click="selectPresetAmount" data-args='[30000]' style="height: 60px; font-family: Montserrat, sans-serif; font-weight: 700; font-size: 16px;">Rp 30.000</button>
+                                    <button type="button" class="amount-btn" data-on-click="selectPresetAmount" data-args='[50000]' style="height: 60px; font-family: Montserrat, sans-serif; font-weight: 700; font-size: 16px;">Rp 50.000</button>
+                                    <button type="button" class="amount-btn" data-on-click="selectPresetAmount" data-args='[100000]' style="height: 60px; font-family: Montserrat, sans-serif; font-weight: 700; font-size: 16px;">Rp 100.000</button>
+                                    <button type="button" class="amount-btn" data-on-click="selectPresetAmount" data-args='[150000]' style="height: 60px; font-family: Montserrat, sans-serif; font-weight: 700; font-size: 16px;">Rp 150.000</button>
                                 </div>
                                 
                                 <!-- Custom Amount Field -->
                                 <div style="position: relative; width: 100%;">
-                                    <input type="number" id="custom-amount" placeholder="Atau masukkan nominal lain (Rp)" autocomplete="off" oninput="handleCustomAmountInput(this)" class="input-field" />
+                                    <input type="number" id="custom-amount" placeholder="Atau masukkan nominal lain (Rp)" autocomplete="off" data-on-input="handleCustomAmountInput" class="input-field" />
                                 </div>
 
                                 <!-- Optional Donor Info -->
@@ -234,7 +234,7 @@
                                 
                                 <!-- Action Button: Direct WhatsApp Donation -->
                                 <div style="display: flex; flex-direction: column; gap: 12px; width: 100%;">
-                                    <button type="button" onclick="handleWhatsAppDonationSubmit()" style="height: 64px; background: #256D4A; color: white; border: 2px solid #1D1D1D; font-family: Montserrat, sans-serif; font-weight: 700; font-size: 16px; letter-spacing: 0.45px; text-transform: uppercase; display: flex; align-items: center; justify-content: center; gap: 10px; cursor: pointer; transition: background 0.2s; box-shadow: 4px 4px 0px 0px #1D1D1D;" onmouseover="this.style.background='#1f5a3d'" onmouseout="this.style.background='#256D4A'">
+                                    <button type="button" data-on-click="handleWhatsAppDonationSubmit" style="height: 64px; background: #256D4A; color: white; border: 2px solid #1D1D1D; font-family: Montserrat, sans-serif; font-weight: 700; font-size: 16px; letter-spacing: 0.45px; text-transform: uppercase; display: flex; align-items: center; justify-content: center; gap: 10px; cursor: pointer; transition: background 0.2s; box-shadow: 4px 4px 0px 0px #1D1D1D;" data-hover-style="background:#1f5a3d" data-rest-style="background:#256D4A">
                                         <i data-lucide="message-circle" style="width: 24px; height: 24px;"></i>
                                         <span>Lanjutkan Donasi via WhatsApp</span>
                                     </button>

@@ -136,7 +136,7 @@
                                         <textarea id="case-desc" rows="4" placeholder="Ceritakan bagaimana kerusakan terjadi, siapa pihak yang diduga bertanggung jawab, dan apa dampaknya bagi warga sekitar..." class="w-full p-3 border-2 border-[#1D1D1D] outline-none focus:border-[#D95C3F] font-sans"></textarea>
                                     </div>
 
-                                    <button type="button" onclick="submitCaseReport()" style="width: 100%; height: 56px; background: #D95C3F; color: white; border: 2px solid #1D1D1D; font-family: Aspekta, sans-serif; font-weight: 800; font-size: 15px; letter-spacing: 0.5px; text-transform: uppercase; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 4px 4px 0px 0px #1D1D1D; transition: background 0.2s;" onmouseover="this.style.background='#c44e32'" onmouseout="this.style.background='#D95C3F'">
+                                    <button type="button" data-on-click="submitCaseReport" style="width: 100%; height: 56px; background: #D95C3F; color: white; border: 2px solid #1D1D1D; font-family: Aspekta, sans-serif; font-weight: 800; font-size: 15px; letter-spacing: 0.5px; text-transform: uppercase; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 4px 4px 0px 0px #1D1D1D; transition: background 0.2s;" data-hover-style="background:#c44e32" data-rest-style="background:#D95C3F">
                                         <i data-lucide="send" style="width: 18px; height: 18px;"></i>
                                         <span>Kirim Laporan Kasus via WhatsApp</span>
                                     </button>

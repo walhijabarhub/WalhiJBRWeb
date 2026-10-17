@@ -135,4 +135,16 @@ return [
 
     'team_admin_password' => env('TEAM_ADMIN_PASSWORD'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Admin Login Path
+    |--------------------------------------------------------------------------
+    |
+    | Obscured path of the admin login page. Read through config() (never env())
+    | so it keeps working when the configuration is cached.
+    |
+    */
+
+    'login_path' => trim(env('ADMIN_LOGIN_PATH', 'portal-jabar'), '/'),
+
 ];

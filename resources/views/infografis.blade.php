@@ -90,7 +90,7 @@
                                     <!-- Card details -->
                                     <div style="padding: 24px; display: flex; flex-direction: column; justify-content: space-between; flex: 1; gap: 16px;">
                                         <h2 style="margin: 0; color: #1D1D1D; font-size: 20px; font-family: Aspekta, sans-serif; font-weight: 800; text-transform: uppercase; line-height: 1.3; letter-spacing: 0.5px;">
-                                            <a href="{{ route('content.show', $item->slug) }}" style="color: #1D1D1D; text-decoration: none; transition: color 0.2s;" onmouseover="this.style.color='#256D4A'" onmouseout="this.style.color='#1D1D1D'">
+                                            <a href="{{ route('content.show', $item->slug) }}" style="color: #1D1D1D; text-decoration: none; transition: color 0.2s;" data-hover-style="color:#256D4A" data-rest-style="color:#1D1D1D">
                                                 {{ $item->title }}
                                             </a>
                                         </h2>

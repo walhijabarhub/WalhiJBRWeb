@@ -36,7 +36,7 @@ class SecurityHeaders
             $response->headers->set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
         }
 
-        $loginPath = env('ADMIN_LOGIN_PATH', 'portal-jabar');
+        $loginPath = config('auth.login_path', 'portal-jabar');
 
         // Prevent search engines from indexing admin, auth, and internal profile pages
         if ($request->is('admin*') || $request->is('dashboard*') || $request->is('login') || $request->is($loginPath) || $request->is($loginPath.'/*') || $request->is('register') || $request->is('profile*') || $request->is('password/*') || $request->is('forgot-password*') || $request->is('reset-password*') || $request->is('verify-email*') || $request->is('confirm-password*')) {
@@ -44,13 +44,16 @@ class SecurityHeaders
         }
 
         // Content Security Policy with dynamic cryptographic nonce
+        // No 'unsafe-inline' / 'unsafe-eval' for scripts: inline scripts must carry the nonce,
+        // event handlers are bound from resources/js/csp-actions.js, and Alpine uses its CSP build.
+        // Third-party scripts are pinned to exact paths (and loaded with SRI) rather than whole CDNs.
         $cspDirectives = [
             "default-src 'self'",
-            "script-src 'self' 'nonce-{$nonce}' 'unsafe-inline' https://app.midtrans.com https://app.sandbox.midtrans.com https://cdn.jsdelivr.net https://unpkg.com",
-            "script-src-attr 'unsafe-inline'",
-            "style-src 'self' 'unsafe-inline' https://fonts.bunny.net https://fonts.googleapis.com https://cdn.jsdelivr.net",
+            "script-src 'self' 'nonce-{$nonce}' https://app.midtrans.com/snap/ https://app.sandbox.midtrans.com/snap/ https://cdn.jsdelivr.net/npm/quill@2.0.2/ https://cdn.jsdelivr.net/npm/chart.js@4.4.7/ https://unpkg.com/lucide@0.460.0/",
+            "script-src-attr 'none'",
+            "style-src 'self' 'unsafe-inline' https://fonts.bunny.net https://fonts.googleapis.com https://cdn.jsdelivr.net/npm/quill@2.0.2/",
             "font-src 'self' https://fonts.bunny.net https://fonts.gstatic.com data:",
-            "img-src 'self' data: blob: https: http:",
+            "img-src 'self' data: blob: https:",
             "connect-src 'self' https://app.midtrans.com https://app.sandbox.midtrans.com https://api.midtrans.com https://api.sandbox.midtrans.com",
             "frame-src 'self' https://app.midtrans.com https://app.sandbox.midtrans.com",
             "frame-ancestors 'self'",
@@ -58,6 +61,10 @@ class SecurityHeaders
             "object-src 'none'",
             "base-uri 'self'",
         ];
+
+        if ($request->isSecure()) {
+            $cspDirectives[] = 'upgrade-insecure-requests';
+        }
 
         $response->headers->set('Content-Security-Policy', implode('; ', $cspDirectives));
 

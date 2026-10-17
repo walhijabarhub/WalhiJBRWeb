@@ -45,21 +45,21 @@
             <!-- Navigation Tabs (Neo-Brutalist Style) -->
             <div class="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center mb-12">
                 <button type="button" 
-                        onclick="setTentangTab('profil')"
+                        data-on-click="setTentangTab" data-args='["profil"]'
                         id="tab-btn-profil" 
                         style="background-color: #256D4A; color: #F4F1EA;"
                         class="tab-btn px-6 py-3 border-4 border-[#1D1D1D] font-heading font-bold text-base md:text-lg uppercase tracking-wider transition-all shadow-[4px_4px_0px_0px_#1D1D1D] active:translate-x-[2px] active:translate-y-[2px] cursor-pointer outline-none select-none">
                     Profil & Anggota
                 </button>
                 <button type="button" 
-                        onclick="setTentangTab('visi-misi')"
+                        data-on-click="setTentangTab" data-args='["visi-misi"]'
                         id="tab-btn-visi-misi" 
                         style="background-color: #FFFFFF; color: #1D1D1D;"
                         class="tab-btn px-6 py-3 border-4 border-[#1D1D1D] font-heading font-bold text-base md:text-lg uppercase tracking-wider transition-all shadow-[4px_4px_0px_0px_#1D1D1D] hover:bg-[#F4F1EA] active:translate-x-[2px] active:translate-y-[2px] cursor-pointer outline-none select-none">
                     Visi, Misi & Nilai
                 </button>
                 <button type="button" 
-                        onclick="setTentangTab('pengurus')"
+                        data-on-click="setTentangTab" data-args='["pengurus"]'
                         id="tab-btn-pengurus" 
                         style="background-color: #FFFFFF; color: #1D1D1D;"
                         class="tab-btn px-6 py-3 border-4 border-[#1D1D1D] font-heading font-bold text-base md:text-lg uppercase tracking-wider transition-all shadow-[4px_4px_0px_0px_#1D1D1D] hover:bg-[#F4F1EA] active:translate-x-[2px] active:translate-y-[2px] cursor-pointer outline-none select-none">
