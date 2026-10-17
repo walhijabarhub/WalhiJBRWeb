@@ -38,7 +38,7 @@ ssh root@IP_SERVER_VPS_ANDA
 Skrip ini akan secara otomatis memperbarui sistem, memasang Swap 2 GB (mencegah crash OOM pada 1 vCPU), mengonfigurasi firewall UFW, menginstal Docker Engine resmi, dan menyiapkan cron backup harian:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Irs622/walhi_larafel/main/setup-vps.sh -o setup-vps.sh
+curl -fsSL https://raw.githubusercontent.com/walhijabarhub/WalhiJBRWeb/production/setup-vps.sh -o setup-vps.sh
 chmod +x setup-vps.sh
 sudo ./setup-vps.sh
 ```
@@ -46,7 +46,7 @@ sudo ./setup-vps.sh
 ### 3. Clone Repository ke Direktori Produksi (Branch: production)
 ```bash
 cd /var/www
-git clone -b production https://github.com/Irs622/walhi_larafel.git walhi_app
+git clone -b production https://github.com/walhijabarhub/WalhiJBRWeb.git walhi_app
 cd /var/www/walhi_app
 ```
 
@@ -220,7 +220,7 @@ docker compose -f docker-compose.prod.yml logs -f app
 
 Saat ada push ke `production`, workflow `deploy.yml` menjalankan:
 1. **Gatekeeper:** seluruh test (`php artisan test`) dan `composer audit`. Gagal = tidak ada yang dideploy.
-2. **Build image sekali di CI** dan push ke GHCR sebagai `ghcr.io/irs622/walhi_larafel:<12-char-commit-sha>`. VPS tidak lagi membangun image.
+2. **Build image sekali di CI** dan push ke GHCR sebagai `ghcr.io/walhijabarhub/walhijbrweb:<12-char-commit-sha>`. VPS tidak lagi membangun image.
 3. **Deploy via SSH** (host key diverifikasi lewat `fingerprint`, environment `production` dengan reviewer) yang memanggil `./deploy.sh production <sha>` dari commit yang sama.
 
 Workflow `ci.yml` menjalankan test di SQLite **dan MySQL 8.0**, build aset, build image, dan validasi `docker-compose.prod.yml`. Workflow `security.yml` menjalankan gitleaks (seluruh riwayat), `composer audit`, dan `npm audit`. Semua action dikunci ke commit SHA; Dependabot memperbarui dependensi tiap minggu.
@@ -271,7 +271,7 @@ flowchart LR
 ### Deploy manual dari VPS
 ```bash
 cd /var/www/walhi_app
-APP_IMAGE=ghcr.io/irs622/walhi_larafel ./deploy.sh production   # pakai image dari CI
+APP_IMAGE=ghcr.io/walhijabarhub/walhijbrweb ./deploy.sh production   # pakai image dari CI
 ./deploy.sh production                                            # atau build di server
 ```
 

@@ -117,7 +117,7 @@ Setiap Pull Request yang diajukan ke repository ini **wajib mematuhi ketentuan b
 
 1. **Fork atau Clone Repository:**
    ```bash
-   git clone https://github.com/Irs622/walhi_larafel.git
+   git clone https://github.com/walhijabarhub/WalhiJBRWeb.git
    cd walhi_larafel
    ```
 

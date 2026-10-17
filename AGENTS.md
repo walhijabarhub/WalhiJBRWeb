@@ -1,6 +1,6 @@
 # 🤖 AI Agent Guidelines & Navigation System
 
-**Repository:** `Irs622/walhi_larafel`  
+**Repository:** `walhijabarhub/WalhiJBRWeb`  
 **Platform:** Official Web Platform of WALHI Jawa Barat (Wahana Lingkungan Hidup Indonesia — Jawa Barat)  
 **Primary Language:** PHP 8.4+ / Laravel 13.x  
 **Target Environments:** Local (macOS/Linux/Docker), Production (Ubuntu VPS / Docker Compose)

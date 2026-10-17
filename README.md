@@ -63,7 +63,7 @@ Metode ini paling praktis karena seluruh dependensi (PHP 8.4, Composer, Node.js 
 
 1. **Clone repository dan masuk ke direktori:**
    ```bash
-   git clone https://github.com/Irs622/walhi_larafel.git
+   git clone https://github.com/walhijabarhub/WalhiJBRWeb.git
    cd walhi_larafel
    ```
 
