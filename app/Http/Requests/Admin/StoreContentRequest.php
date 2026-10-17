@@ -2,12 +2,15 @@
 
 namespace App\Http\Requests\Admin;
 
+use App\Http\Requests\Admin\Concerns\ValidatesContentLinks;
 use App\Models\Content;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\UploadedFile;
 
 class StoreContentRequest extends FormRequest
 {
+    use ValidatesContentLinks;
+
     public function authorize(): bool
     {
         $category = (string) $this->route('category');
@@ -20,7 +23,7 @@ class StoreContentRequest extends FormRequest
 
     public function rules(): array
     {
-        return [
+        return array_merge([
             'title' => ['required', 'string', 'max:255'],
             'slug' => ['nullable', 'string', 'max:255'],
             'body' => ['nullable', 'string', 'max:5000000'],
@@ -116,7 +119,7 @@ class StoreContentRequest extends FormRequest
             'is_promoted' => ['nullable', 'boolean'],
             'author' => ['nullable', 'string', 'max:255'],
             'publish_date' => ['nullable', 'date'],
-        ];
+        ], $this->contentLinkRules());
     }
 
     public function messages(): array

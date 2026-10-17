@@ -446,7 +446,7 @@
                                                     <i data-lucide="send" style="width: 14px; height: 14px;"></i>
                                                     Telegram
                                                 </a>
-                                                <button onclick="copyToClipboard('{{ url()->current() }}')" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 38px; padding: 0 16px; background: #ffffff; color: #1D1D1D; border: 2px solid #1D1D1D; cursor: pointer; font-size: 11px; font-weight: 700; text-transform: uppercase; font-family: Aspekta, sans-serif;" class="btn-action shadow-[2px_2px_0px_0px_#1D1D1D]">
+                                                <button data-on-click="copyToClipboard" data-args="{{ json_encode([url()->current()]) }}" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 38px; padding: 0 16px; background: #ffffff; color: #1D1D1D; border: 2px solid #1D1D1D; cursor: pointer; font-size: 11px; font-weight: 700; text-transform: uppercase; font-family: Aspekta, sans-serif;" class="btn-action shadow-[2px_2px_0px_0px_#1D1D1D]">
                                                     <i data-lucide="link" style="width: 14px; height: 14px;"></i>
                                                     Salin Link
                                                 </button>
@@ -495,7 +495,7 @@
                                                         
                                                         <!-- Reply Button -->
                                                         <div style="display: flex; justify-content: flex-end;">
-                                                            <button onclick="document.getElementById('reply-form-{{ $comment->id }}').style.display = document.getElementById('reply-form-{{ $comment->id }}').style.display === 'none' ? 'block' : 'none'" style="background: transparent; border: none; font-size: 12px; font-weight: 700; color: #256D4A; cursor: pointer; text-transform: uppercase; padding: 0; font-family: Aspekta, sans-serif; letter-spacing: 0.5px;">Balas Komentar</button>
+                                                            <button type="button" data-toggle-target="#reply-form-{{ $comment->id }}" style="background: transparent; border: none; font-size: 12px; font-weight: 700; color: #256D4A; cursor: pointer; text-transform: uppercase; padding: 0; font-family: Aspekta, sans-serif; letter-spacing: 0.5px;">Balas Komentar</button>
                                                         </div>
 
                                                         <!-- Replies nested list (already eager-loaded, zero extra queries) -->

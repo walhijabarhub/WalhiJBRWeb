@@ -80,7 +80,7 @@
                                         </form>
                                     @endif
 
-                                    <form action="{{ route('admin.comments.destroy', $comment->id) }}" method="POST" onsubmit="return confirm('Apakah Anda yakin ingin menghapus komentar ini?')">
+                                    <form action="{{ route('admin.comments.destroy', $comment->id) }}" method="POST" data-confirm="Apakah Anda yakin ingin menghapus komentar ini?">
                                         @csrf
                                         @method('DELETE')
                                         <button type="submit" class="bg-[#D95C3F] hover:bg-[#b04b33] text-white text-xs font-bold py-1.5 px-3 rounded transition-colors shadow-sm">

@@ -133,7 +133,7 @@
                                     <div style="display: flex; flex: 1 1 0%; flex-direction: column; justify-content: space-between; padding: 24px; gap: 24px;">
                                         <div style="display: flex; flex-direction: column; gap: 16px;">
                                             <h3 style="margin: 0; color: #1D1D1D; font-size: 19px; font-family: Aspekta, sans-serif; font-weight: 700; line-height: 1.3; letter-spacing: 0.3px; text-transform: uppercase;">
-                                                <a href="{{ route('content.show', $news->slug) }}" style="color: #1D1D1D; text-decoration: none; transition: color 0.2s;" onmouseover="this.style.color='#256D4A'" onmouseout="this.style.color='#1D1D1D'">
+                                                <a href="{{ route('content.show', $news->slug) }}" style="color: #1D1D1D; text-decoration: none; transition: color 0.2s;" data-hover-style="color:#256D4A" data-rest-style="color:#1D1D1D">
                                                     {{ $news->title }}
                                                 </a>
                                             </h3>

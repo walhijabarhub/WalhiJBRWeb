@@ -2,12 +2,15 @@
 
 namespace App\Http\Requests\Admin;
 
+use App\Http\Requests\Admin\Concerns\ValidatesContentLinks;
 use App\Models\Content;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\UploadedFile;
 
 class UpdateContentRequest extends FormRequest
 {
+    use ValidatesContentLinks;
+
     public function authorize(): bool
     {
         $category = (string) $this->route('category');
@@ -23,7 +26,7 @@ class UpdateContentRequest extends FormRequest
 
     public function rules(): array
     {
-        return [
+        return array_merge([
             'title' => ['required', 'string', 'max:255'],
             'slug' => ['required', 'string', 'max:255'],
             'body' => ['nullable', 'string', 'max:5000000'],
@@ -119,7 +122,7 @@ class UpdateContentRequest extends FormRequest
             'publish_date' => ['nullable', 'date'],
             'is_promoted' => ['nullable', 'boolean'],
             'author' => ['nullable', 'string', 'max:255'],
-        ];
+        ], $this->contentLinkRules());
     }
 
     public function messages(): array

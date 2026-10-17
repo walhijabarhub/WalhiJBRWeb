@@ -17,6 +17,23 @@ class ContentPolicy
     }
 
     /**
+     * Whether the user may open the admin listing for a category.
+     * Sensitive categories (e.g. the donation dashboard with donor data) are admin-only.
+     */
+    public function viewCategory(User $user, string $category): bool
+    {
+        if (! ContentCategory::tryFrom($category)) {
+            return false;
+        }
+
+        if (Content::isSensitiveCategory($category)) {
+            return $user->isAdmin();
+        }
+
+        return $user->canManageContent();
+    }
+
+    /**
      * Determine whether the user (or guest) can view the content.
      */
     public function view(?User $user, Content $content): bool

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\ContentCategory;
 use App\Enums\ContentStatus;
+use App\Services\Content\HtmlSanitizer;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -271,26 +272,17 @@ class Content extends Model
             $raw = $formatted ?: '<p>'.nl2br(htmlspecialchars($raw, ENT_QUOTES, 'UTF-8')).'</p>';
         }
 
-        $config = \HTMLPurifier_Config::createDefault();
-        $config->set('HTML.DefinitionID', 'walhi-html5-content');
-        $config->set('HTML.DefinitionRev', 3);
-        $config->set('Cache.DefinitionImpl', null);
-        $config->set('HTML.TargetBlank', true);
-        $config->set('URI.AllowedSchemes', [
-            'http' => true,
-            'https' => true,
-            'mailto' => true,
-            'tel' => true,
+        return HtmlSanitizer::purify($raw);
+    }
+
+    /**
+     * Attributes for the admin edit modal. The body is sent already sanitized so that
+     * loading it into the WYSIWYG editor can never execute stored markup.
+     */
+    public function toEditorArray(): array
+    {
+        return array_merge($this->attributesToArray(), [
+            'body' => HtmlSanitizer::forStorage($this->body),
         ]);
-        $config->set('HTML.Allowed', 'p,br,strong,b,em,i,u,ul,ol,li,h2,h3,h4,h5,blockquote,a[href|title|target],img[src|alt|width|height|style|class],table,thead,tbody,tr,th,td,figure,figcaption,hr,span,div');
-
-        if ($def = $config->maybeGetRawHTMLDefinition()) {
-            $def->addElement('figure', 'Block', 'Flow', 'Common');
-            $def->addElement('figcaption', 'Inline', 'Flow', 'Common');
-        }
-
-        $purifier = new \HTMLPurifier($config);
-
-        return $purifier->purify($raw);
     }
 }

@@ -32,7 +32,7 @@
                 />
             </form>
             @if(!\App\Models\Content::isSensitiveCategory($category) || auth()->user()->isAdmin())
-                <button onclick="openAddModal()" class="flex items-center gap-2 px-4 py-2 bg-[#256D4A] text-white text-sm font-semibold rounded hover:bg-[#1e5a3d] transition-colors shrink-0">
+                <button data-on-click="openAddModal" class="flex items-center gap-2 px-4 py-2 bg-[#256D4A] text-white text-sm font-semibold rounded hover:bg-[#1e5a3d] transition-colors shrink-0">
                     <i data-lucide="plus" class="w-3.5 h-3.5"></i>
                     Tambah {{ $config['title'] }}
                 </button>
@@ -193,7 +193,7 @@
                                                 </form>
 
                                                 <!-- Edit -->
-                                                <button onclick="openEditModal(this)" data-item="{{ json_encode($item) }}" class="p-1.5 rounded hover:bg-[#f0f5ff] text-[#555] transition-colors" title="Edit">
+                                                <button data-on-click="openEditModal" data-item="{{ json_encode($item->toEditorArray()) }}" class="p-1.5 rounded hover:bg-[#f0f5ff] text-[#555] transition-colors" title="Edit">
                                                     <i data-lucide="edit-2" class="w-3.5 h-3.5"></i>
                                                 </button>
                                             @else
@@ -202,7 +202,7 @@
 
                                             @if(auth()->user()->isAdmin())
                                                 <!-- Delete -->
-                                                <form action="{{ route('admin.content' . (request()->is('admin/tentang/*') ? '.tentang' : '') . '.destroy', [$category, $item->id]) }}" method="POST" onsubmit="return confirm('Hapus &quot;{{ $item->title }}&quot;?')">
+                                                <form action="{{ route('admin.content' . (request()->is('admin/tentang/*') ? '.tentang' : '') . '.destroy', [$category, $item->id]) }}" method="POST" data-confirm="Hapus &quot;{{ $item->title }}&quot;?">
                                                     @csrf
                                                     @method('DELETE')
                                                     <button type="submit" class="p-1.5 rounded hover:bg-[#fdf0ee] text-[#D95C3F] transition-colors">
@@ -243,7 +243,7 @@
         <!-- Modal Header -->
         <div class="flex items-center justify-between px-6 py-4 border-b border-[#ddd] sticky top-0 bg-white z-10">
             <h2 id="modal-title" class="font-bold text-[#1D1D1D]">Tambah {{ $config['title'] }}</h2>
-            <button onclick="closeModal()" class="p-1.5 rounded hover:bg-[#f0ede8] transition-colors">
+            <button data-on-click="closeModal" class="p-1.5 rounded hover:bg-[#f0ede8] transition-colors">
                 <i data-lucide="x" class="w-4 h-4"></i>
             </button>
         </div>
@@ -305,12 +305,12 @@
                 </label>
                 <input type="hidden" id="form-remove-image" name="remove_image" value="0" />
                 <div class="flex items-center gap-3 mb-2 text-xs">
-                    <button type="button" onclick="setImageInputMode('upload')" id="btn-mode-upload" class="px-2.5 py-1 rounded bg-[#256D4A] text-white font-medium transition-colors">Unggah File</button>
-                    <button type="button" onclick="setImageInputMode('url')" id="btn-mode-url" class="px-2.5 py-1 rounded bg-[#f0ede8] text-[#666] font-medium transition-colors">Teks URL</button>
+                    <button type="button" data-on-click="setImageInputMode" data-args='["upload"]' id="btn-mode-upload" class="px-2.5 py-1 rounded bg-[#256D4A] text-white font-medium transition-colors">Unggah File</button>
+                    <button type="button" data-on-click="setImageInputMode" data-args='["url"]' id="btn-mode-url" class="px-2.5 py-1 rounded bg-[#f0ede8] text-[#666] font-medium transition-colors">Teks URL</button>
                 </div>
                 
                 <div id="container-mode-upload" class="space-y-2">
-                    <input type="file" id="form-upload" name="image" @if($category === 'laporan-tahunan' || $category === 'regulasi') accept=".pdf,.xls,.xlsx,.doc,.docx,image/*" @else accept="image/*" @endif onchange="previewSelectedImage(this)" class="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-[#256D4A]/10 file:text-[#256D4A] hover:file:bg-[#256D4A]/20" />
+                    <input type="file" id="form-upload" name="image" @if($category === 'laporan-tahunan' || $category === 'regulasi') accept=".pdf,.xls,.xlsx,.doc,.docx,image/*" @else accept="image/*" @endif data-on-change="previewSelectedImage" class="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-[#256D4A]/10 file:text-[#256D4A] hover:file:bg-[#256D4A]/20" />
                     <span class="text-[11px] text-gray-500 block">Ukuran berkas maksimal <strong>2 MB</strong> (Format yang didukung: JPG, PNG, WebP, PDF).</span>
                 </div>
 
@@ -322,7 +322,7 @@
                     <img id="image-preview-el" src="" class="h-16 w-24 object-cover border border-[#ddd] rounded" />
                     <div class="text-xs">
                         <span class="text-[#888] block">Preview File / Gambar</span>
-                        <button type="button" onclick="clearImagePreview()" class="text-[#D95C3F] font-semibold hover:underline">Hapus Berkas</button>
+                        <button type="button" data-on-click="clearImagePreview" class="text-[#D95C3F] font-semibold hover:underline">Hapus Berkas</button>
                     </div>
                 </div>
             </div>
@@ -434,7 +434,7 @@
             </div>
 
             <div class="flex justify-end gap-3 pt-2">
-                <button type="button" onclick="closeModal()" class="px-4 py-2 text-sm border border-[#ddd] rounded hover:bg-[#f0ede8] transition-colors">
+                <button type="button" data-on-click="closeModal" class="px-4 py-2 text-sm border border-[#ddd] rounded hover:bg-[#f0ede8] transition-colors">
                     Batal
                 </button>
                 <button type="submit" class="px-5 py-2 text-sm bg-[#256D4A] text-white font-semibold rounded hover:bg-[#1e5a3d] transition-colors">
@@ -728,7 +728,7 @@
         if(document.getElementById('form-remove-image')) document.getElementById('form-remove-image').value = '0';
         if(document.getElementById('form-tags')) document.getElementById('form-tags').value = item.tags || '';
         if(document.getElementById('form-body')) document.getElementById('form-body').value = item.body || '';
-        if(quillEditor) quillEditor.root.innerHTML = item.body || '';
+        if(quillEditor) { quillEditor.setContents([]); quillEditor.clipboard.dangerouslyPasteHTML(0, item.body || ''); }
         if(document.getElementById('form-author')) document.getElementById('form-author').value = item.author || '';
         if(document.getElementById('form-is-promoted')) document.getElementById('form-is-promoted').checked = !!item.is_promoted;
 

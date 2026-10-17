@@ -117,7 +117,7 @@
     <div>
         <div class="flex items-center justify-between gap-4 mb-4">
             <h2 class="font-bold text-[#1D1D1D] text-base">Semua Event</h2>
-            <button onclick="openAddModal()" class="flex items-center gap-2 px-4 py-2 bg-[#256D4A] text-white text-sm font-semibold rounded hover:bg-[#1e5a3d] transition-colors shrink-0">
+            <button data-on-click="openAddModal" class="flex items-center gap-2 px-4 py-2 bg-[#256D4A] text-white text-sm font-semibold rounded hover:bg-[#1e5a3d] transition-colors shrink-0">
                 <i data-lucide="plus" class="w-3.5 h-3.5"></i>
                 Tambah Event
             </button>
@@ -170,11 +170,11 @@
                                                 </button>
                                             </form>
                                             
-                                            <button onclick="openEditModal(this)" data-item="{{ json_encode($item) }}" class="p-1.5 rounded hover:bg-[#f0f5ff] text-[#555] transition-colors">
+                                            <button data-on-click="openEditModal" data-item="{{ json_encode($item->toEditorArray()) }}" class="p-1.5 rounded hover:bg-[#f0f5ff] text-[#555] transition-colors">
                                                 <i data-lucide="edit-2" class="w-3.5 h-3.5"></i>
                                             </button>
 
-                                            <form action="{{ route('admin.content.destroy', [$category, $item->id]) }}" method="POST" onsubmit="return confirm('Hapus event &quot;{{ $item->title }}&quot;?')">
+                                            <form action="{{ route('admin.content.destroy', [$category, $item->id]) }}" method="POST" data-confirm="Hapus event &quot;{{ $item->title }}&quot;?">
                                                 @csrf
                                                 @method('DELETE')
                                                 <button type="submit" class="p-1.5 rounded hover:bg-[#fdf0ee] text-[#D95C3F] transition-colors">
@@ -213,7 +213,7 @@
     <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div class="flex items-center justify-between px-6 py-4 border-b border-[#ddd] sticky top-0 bg-white z-10">
             <h2 id="modal-title" class="font-bold text-[#1D1D1D]">Tambah Event</h2>
-            <button onclick="closeModal()" class="p-1.5 rounded hover:bg-[#f0ede8] transition-colors">
+            <button data-on-click="closeModal" class="p-1.5 rounded hover:bg-[#f0ede8] transition-colors">
                 <i data-lucide="x" class="w-4 h-4"></i>
             </button>
         </div>
@@ -251,13 +251,13 @@
                 <label class="block text-xs font-semibold text-[#555] mb-1.5 uppercase tracking-wide">Gambar Event</label>
                 <input type="hidden" id="form-remove-image" name="remove_image" value="0" />
                 <div class="flex items-center gap-3 mb-2 text-xs">
-                    <button type="button" onclick="setImageInputMode('upload')" id="btn-mode-upload" class="px-2.5 py-1 rounded bg-[#256D4A] text-white font-medium transition-colors">Unggah File</button>
-                    <button type="button" onclick="setImageInputMode('url')" id="btn-mode-url" class="px-2.5 py-1 rounded bg-[#f0ede8] text-[#666] font-medium transition-colors">Teks URL</button>
+                    <button type="button" data-on-click="setImageInputMode" data-args='["upload"]' id="btn-mode-upload" class="px-2.5 py-1 rounded bg-[#256D4A] text-white font-medium transition-colors">Unggah File</button>
+                    <button type="button" data-on-click="setImageInputMode" data-args='["url"]' id="btn-mode-url" class="px-2.5 py-1 rounded bg-[#f0ede8] text-[#666] font-medium transition-colors">Teks URL</button>
                 </div>
                 
                 <!-- Upload File Container -->
                 <div id="container-mode-upload" class="space-y-2">
-                    <input type="file" id="form-upload" name="image" accept="image/*" onchange="previewSelectedImage(this)" class="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-[#256D4A]/10 file:text-[#256D4A] hover:file:bg-[#256D4A]/20" />
+                    <input type="file" id="form-upload" name="image" accept="image/*" data-on-change="previewSelectedImage" class="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-[#256D4A]/10 file:text-[#256D4A] hover:file:bg-[#256D4A]/20" />
                     <span class="text-[11px] text-gray-500 block">Maksimal ukuran file: <strong>2 MB</strong> (Rekomendasi format: JPG, PNG, WebP).</span>
                 </div>
 
@@ -271,7 +271,7 @@
                     <img id="image-preview-el" src="" class="h-16 w-24 object-cover border border-[#ddd] rounded" />
                     <div class="text-xs">
                         <span class="text-[#888] block">Preview Gambar</span>
-                        <button type="button" onclick="clearImagePreview()" class="text-[#D95C3F] font-semibold hover:underline">Hapus Berkas</button>
+                        <button type="button" data-on-click="clearImagePreview" class="text-[#D95C3F] font-semibold hover:underline">Hapus Berkas</button>
                     </div>
                 </div>
             </div>
@@ -290,7 +290,7 @@
             </div>
 
             <div class="flex justify-end gap-3 pt-2">
-                <button type="button" onclick="closeModal()" class="px-4 py-2 text-sm border border-[#ddd] rounded hover:bg-[#f0ede8] transition-colors">
+                <button type="button" data-on-click="closeModal" class="px-4 py-2 text-sm border border-[#ddd] rounded hover:bg-[#f0ede8] transition-colors">
                     Batal
                 </button>
                 <button type="submit" class="px-5 py-2 text-sm bg-[#256D4A] text-white font-semibold rounded hover:bg-[#1e5a3d] transition-colors">
@@ -571,7 +571,7 @@
         if(document.getElementById('form-remove-image')) document.getElementById('form-remove-image').value = '0';
         document.getElementById('form-tags').value = item.tags || '';
         document.getElementById('form-body').value = item.body || '';
-        if(quillEditor) quillEditor.root.innerHTML = item.body || '';
+        if(quillEditor) { quillEditor.setContents([]); quillEditor.clipboard.dangerouslyPasteHTML(0, item.body || ''); }
 
         if (item.image_url) {
             showPreview(item.image_url);

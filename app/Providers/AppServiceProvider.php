@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Models\Content;
+use App\Rules\SafeUrl;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -137,15 +138,15 @@ class AppServiceProvider extends ServiceProvider
                         if (strpos($line, ':') !== false) {
                             [$key, $value] = explode(':', $line, 2);
                             $key = strtolower(trim($key));
-                            $value = trim(filter_var($value, FILTER_SANITIZE_SPECIAL_CHARS));
+                            // Values are escaped by Blade on output; only validate them here.
+                            $value = trim($value);
                             if (array_key_exists($key, $defaults)) {
-                                if (in_array($key, ['facebook', 'instagram', 'youtube', 'twitter', 'email'])) {
-                                    if ($key === 'email' && ! filter_var($value, FILTER_VALIDATE_EMAIL)) {
-                                        continue;
-                                    }
-                                    if ($key !== 'email' && ! filter_var($value, FILTER_VALIDATE_URL)) {
-                                        continue;
-                                    }
+                                if ($key === 'email' && ! filter_var($value, FILTER_VALIDATE_EMAIL)) {
+                                    continue;
+                                }
+                                if (in_array($key, ['facebook', 'instagram', 'youtube', 'twitter'], true)
+                                    && ! SafeUrl::isSafe($value, allowRelative: false)) {
+                                    continue;
                                 }
                                 $defaults[$key] = $value;
                             }
@@ -174,8 +175,8 @@ class AppServiceProvider extends ServiceProvider
                     ->first();
 
                 if ($campaign) {
-                    $defaults['title'] = filter_var($campaign->title, FILTER_SANITIZE_SPECIAL_CHARS);
-                    $defaults['url'] = filter_var($campaign->tags, FILTER_VALIDATE_URL) ? $campaign->tags : '#';
+                    $defaults['title'] = $campaign->title;
+                    $defaults['url'] = SafeUrl::sanitize($campaign->tags);
                 }
             }
         } catch (\Exception) {

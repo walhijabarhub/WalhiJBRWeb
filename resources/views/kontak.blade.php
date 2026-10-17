@@ -143,7 +143,7 @@
                                     <p style="margin: 0; font-size: 14px; line-height: 1.6; opacity: 0.9;">
                                         Masyarakat yang ingin menyampaikan laporan dugaan perusakan lingkungan, pencemaran air/sungai, sengketa lahan, atau tambang ilegal dapat langsung mengakses Posko Pengaduan Kasus kami.
                                     </p>
-                                    <a href="{{ route('pengaduan') }}" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: #D95C3F; color: white; padding: 14px 24px; font-weight: 700; font-size: 14px; text-transform: uppercase; text-decoration: none; border: 2px solid white; box-shadow: 3px 3px 0px 0px #1D1D1D; margin-top: 8px; transition: background 0.2s;" onmouseover="this.style.background='#c44e32'" onmouseout="this.style.background='#D95C3F'">
+                                    <a href="{{ route('pengaduan') }}" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: #D95C3F; color: white; padding: 14px 24px; font-weight: 700; font-size: 14px; text-transform: uppercase; text-decoration: none; border: 2px solid white; box-shadow: 3px 3px 0px 0px #1D1D1D; margin-top: 8px; transition: background 0.2s;" data-hover-style="background:#c44e32" data-rest-style="background:#D95C3F">
                                         <i data-lucide="alert-triangle" style="width: 18px; height: 18px;"></i>
                                         <span>Buka Posko Pengaduan</span>
                                     </a>

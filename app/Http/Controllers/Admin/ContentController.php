@@ -9,6 +9,7 @@ use App\Http\Requests\Admin\UpdateContentRequest;
 use App\Models\Content;
 use App\Models\Donation;
 use App\Services\AuditLogService;
+use App\Services\Content\HtmlSanitizer;
 use App\Services\Content\SlugService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -70,6 +71,7 @@ class ContentController extends Controller
     public function index(Request $request, string $category)
     {
         $this->validateCategory($category);
+        $this->authorize('viewCategory', [Content::class, $category]);
         $config = $this->getCategoryConfig($category);
         $search = $request->input('search');
 
@@ -135,6 +137,7 @@ class ContentController extends Controller
 
         $validated = $request->validated();
         $validated['is_promoted'] = $request->boolean('is_promoted');
+        $validated['body'] = HtmlSanitizer::forStorage($validated['body'] ?? null);
 
         // Slug
         $rawSlug = ! empty($validated['slug']) ? $validated['slug'] : $validated['title'];
@@ -187,6 +190,7 @@ class ContentController extends Controller
 
         $validated = $request->validated();
         $validated['is_promoted'] = $request->boolean('is_promoted');
+        $validated['body'] = HtmlSanitizer::forStorage($validated['body'] ?? null);
 
         // Slug (unique, excluding current record)
         $validated['slug'] = $this->slugService->makeUnique(

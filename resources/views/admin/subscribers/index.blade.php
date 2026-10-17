@@ -46,7 +46,7 @@
                                 {{ $subscriber->created_at->translatedFormat('d M Y - H:i') }}
                             </td>
                             <td class="px-6 py-4 text-right whitespace-nowrap">
-                                <form action="{{ route('admin.subscribers.destroy', $subscriber->id) }}" method="POST" onsubmit="return confirm('Apakah Anda yakin ingin menghapus pelanggan ini?')">
+                                <form action="{{ route('admin.subscribers.destroy', $subscriber->id) }}" method="POST" data-confirm="Apakah Anda yakin ingin menghapus pelanggan ini?">
                                     @csrf
                                     @method('DELETE')
                                     <button type="submit" class="bg-[#D95C3F] hover:bg-[#b04b33] text-white text-xs font-bold py-1.5 px-3 rounded transition-colors shadow-sm">
