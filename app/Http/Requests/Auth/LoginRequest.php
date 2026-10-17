@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Auth;
 
 use App\Models\User;
+use Illuminate\Auth\Events\Failed;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -14,64 +15,56 @@ use Illuminate\Validation\ValidationException;
 class LoginRequest extends FormRequest
 {
     /**
-     * Determine if the user is authorized to make this request.
+     * Organisation domains that may be omitted when signing in with a username.
      */
+    private const USERNAME_DOMAINS = ['walhijabar.co.id', 'walhijabar.or.id', 'walhi-jabar.org'];
+
+    /**
+     * Attempts allowed per account + IP, and per account across all IPs, before lockout.
+     */
+    private const MAX_ATTEMPTS_PER_IP = 5;
+
+    private const MAX_ATTEMPTS_PER_ACCOUNT = 20;
+
+    private ?User $resolvedUser = null;
+
+    private bool $resolved = false;
+
     public function authorize(): bool
     {
         return true;
     }
 
     /**
-     * Get the validation rules that apply to the request.
-     *
      * @return array<string, ValidationRule|array<mixed>|string>
      */
     public function rules(): array
     {
         return [
-            'email' => ['required', 'string'],
+            'email' => ['required', 'string', 'max:255'],
             'password' => ['required', 'string'],
         ];
     }
 
     /**
-     * Attempt to authenticate the request's credentials.
+     * Validate the credentials without logging the user in, so the caller can require
+     * a second factor first.
+     *
+     * Only exact matches are accepted: a full email address, or a username that equals
+     * the local part of an address on one of the organisation domains.
      *
      * @throws ValidationException
      */
-    public function authenticate(): void
+    public function authenticate(): User
     {
         $this->ensureIsNotRateLimited();
 
-        $login = trim((string) $this->input('email'));
-        $password = (string) $this->input('password');
-        $remember = $this->boolean('remember');
+        $user = $this->resolveUser();
 
-        $authenticated = false;
-
-        if (filter_var($login, FILTER_VALIDATE_EMAIL)) {
-            $authenticated = Auth::attempt(['email' => $login, 'password' => $password], $remember);
-            if (! $authenticated && Str::lower($login) !== $login) {
-                $authenticated = Auth::attempt(['email' => Str::lower($login), 'password' => $password], $remember);
-            }
-        } else {
-            $lowerLogin = Str::lower($login);
-
-            // Match username prefix, domain variations, or full name
-            $user = User::where('email', $lowerLogin . '@walhijabar.co.id')
-                ->orWhere('email', $lowerLogin . '@walhijabar.or.id')
-                ->orWhere('email', $lowerLogin . '@walhi-jabar.org')
-                ->orWhere('email', 'like', $lowerLogin . '@%')
-                ->orWhereRaw('LOWER(name) = ?', [$lowerLogin])
-                ->first();
-
-            if ($user) {
-                $authenticated = Auth::attempt(['email' => $user->email, 'password' => $password], $remember);
-            }
-        }
-
-        if (! $authenticated) {
-            RateLimiter::hit($this->throttleKey());
+        if (! $user || ! Auth::getProvider()->validateCredentials($user, ['password' => (string) $this->input('password')])) {
+            RateLimiter::hit($this->throttleKey(), 60);
+            RateLimiter::hit($this->accountThrottleKey(), 900);
+            event(new Failed('web', $user, ['email' => $this->normalizedLogin()]));
 
             throw ValidationException::withMessages([
                 'email' => trans('auth.failed'),
@@ -79,22 +72,28 @@ class LoginRequest extends FormRequest
         }
 
         RateLimiter::clear($this->throttleKey());
+
+        return $user;
     }
 
     /**
-     * Ensure the login request is not rate limited.
-     *
      * @throws ValidationException
      */
     public function ensureIsNotRateLimited(): void
     {
-        if (! RateLimiter::tooManyAttempts($this->throttleKey(), 5)) {
+        $key = match (true) {
+            RateLimiter::tooManyAttempts($this->throttleKey(), self::MAX_ATTEMPTS_PER_IP) => $this->throttleKey(),
+            RateLimiter::tooManyAttempts($this->accountThrottleKey(), self::MAX_ATTEMPTS_PER_ACCOUNT) => $this->accountThrottleKey(),
+            default => null,
+        };
+
+        if ($key === null) {
             return;
         }
 
         event(new Lockout($this));
 
-        $seconds = RateLimiter::availableIn($this->throttleKey());
+        $seconds = RateLimiter::availableIn($key);
 
         throw ValidationException::withMessages([
             'email' => trans('auth.throttle', [
@@ -105,10 +104,50 @@ class LoginRequest extends FormRequest
     }
 
     /**
-     * Get the rate limiting throttle key for the request.
+     * Throttle key per account (or per normalised login when no account matches) and IP.
      */
     public function throttleKey(): string
     {
-        return Str::transliterate(Str::lower($this->string('email')).'|'.$this->ip());
+        return $this->accountThrottleKey().'|'.$this->ip();
+    }
+
+    private function accountThrottleKey(): string
+    {
+        $user = $this->resolveUser();
+
+        return $user ? 'login:user:'.$user->id : 'login:name:'.sha1($this->normalizedLogin());
+    }
+
+    private function resolveUser(): ?User
+    {
+        if ($this->resolved) {
+            return $this->resolvedUser;
+        }
+
+        $this->resolved = true;
+        $login = $this->normalizedLogin();
+
+        if ($login === '') {
+            return null;
+        }
+
+        if (str_contains($login, '@')) {
+            return $this->resolvedUser = filter_var($login, FILTER_VALIDATE_EMAIL)
+                ? User::where('email', $login)->first()
+                : null;
+        }
+
+        if (! preg_match('/^[a-z0-9._-]+$/', $login)) {
+            return null;
+        }
+
+        $candidates = array_map(fn (string $domain) => $login.'@'.$domain, self::USERNAME_DOMAINS);
+
+        return $this->resolvedUser = User::whereIn('email', $candidates)->orderBy('id')->first();
+    }
+
+    private function normalizedLogin(): string
+    {
+        return Str::lower(trim((string) $this->input('email')));
     }
 }

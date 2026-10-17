@@ -65,21 +65,21 @@ class AuthenticationTest extends TestCase
         $response->assertRedirect(route('admin.dashboard', absolute: false));
     }
 
-    public function test_users_can_authenticate_using_name(): void
+    public function test_users_cannot_authenticate_using_display_name(): void
     {
-        $user = User::factory()->create([
+        // Login by display name was removed (audit #70): only exact email or username.
+        User::factory()->create([
             'name' => 'Admin Tim Contoh',
             'email' => 'teammember@walhijabar.or.id',
             'password' => bcrypt('password'),
         ]);
 
-        $response = $this->post(route('login'), [
+        $this->post(route('login'), [
             'email' => 'admin tim contoh',
             'password' => 'password',
         ]);
 
-        $this->assertAuthenticatedAs($user);
-        $response->assertRedirect(route('admin.dashboard', absolute: false));
+        $this->assertGuest();
     }
 
     public function test_users_can_logout(): void
