@@ -17,13 +17,13 @@ if [ "$(id -u)" -ne 0 ]; then
 fi
 
 # 2. System updates
-echo "📦 [1/6] Memperbarui repositori paket Ubuntu/Debian..."
+echo "📦 [1/7] Memperbarui repositori paket Ubuntu/Debian..."
 apt-get update -y
 DEBIAN_FRONTEND=noninteractive apt-get upgrade -y
 DEBIAN_FRONTEND=noninteractive apt-get install -y curl git ufw htop ca-certificates gnupg lsb-release
 
 # 3. Setup 4 GB Swap file (Rekomendasi standar untuk 8 GB RAM / 100 GB NVMe)
-echo "💾 [2/6] Memeriksa dan mengonfigurasi 4 GB Swap File..."
+echo "💾 [2/7] Memeriksa dan mengonfigurasi 4 GB Swap File..."
 if [ ! -f /swapfile ]; then
     fallocate -l 4G /swapfile || dd if=/dev/zero of=/swapfile bs=1M count=4096
     chmod 600 /swapfile
@@ -46,7 +46,7 @@ if ! grep -q 'vm.swappiness=10' /etc/sysctl.conf; then
 fi
 
 # 4. Install Docker Engine & Docker Compose Plugin (Official)
-echo "🐳 [3/6] Memeriksa instalasi Docker Engine..."
+echo "🐳 [3/7] Memeriksa instalasi Docker Engine..."
 if ! command -v docker &> /dev/null; then
     echo "       Mengunduh dan menginstal Docker resmi..."
     curl -fsSL https://get.docker.com -o /tmp/get-docker.sh
@@ -60,7 +60,7 @@ else
 fi
 
 # 5. Konfigurasi Firewall (UFW)
-echo "🛡️  [4/6] Mengonfigurasi firewall UFW..."
+echo "🛡️  [4/7] Mengonfigurasi firewall UFW..."
 ufw default deny incoming
 ufw default allow outgoing
 ufw allow 22/tcp comment 'SSH Port'
@@ -69,33 +69,65 @@ ufw allow 443/tcp comment 'HTTPS Web'
 ufw --force enable
 echo "✅ Firewall aktif (Port 22, 80, 443 terbuka)."
 
-# 6. Direktori Kerja Produksi
-echo "📁 [5/6] Menyiapkan direktori produksi /var/www..."
+# 6. Direktori kerja & backup
+echo "📁 [5/7] Menyiapkan direktori produksi /var/www dan /var/backups/walhi..."
 mkdir -p /var/www
-mkdir -p /var/backups/walhi_db
+install -d -m 700 /var/backups/walhi
 
-# 7. Backup Otomatis Harian via Cron
-echo "⏰ [6/6] Menyiapkan cron job backup database otomatis harian..."
-BACKUP_SCRIPT="/usr/local/bin/walhi-backup.sh"
-cat > "$BACKUP_SCRIPT" <<'EOF'
-#!/usr/bin/env bash
-BACKUP_DIR="/var/backups/walhi_db"
-mkdir -p "$BACKUP_DIR"
-TIMESTAMP=$(date +'%Y%m%d_%H%M%S')
-TARGET_FILE="$BACKUP_DIR/walhi_db_$TIMESTAMP.sql.gz"
+# Backup harian memakai docker-backup.sh dari repo (satu mekanisme untuk cron & deploy).
+# Skrip lama /usr/local/bin/walhi-backup.sh dihapus bila ada.
+echo "⏰ [6/7] Menyiapkan backup harian (database + file unggahan)..."
+rm -f /usr/local/bin/walhi-backup.sh
+CRON_JOB="0 2 * * * cd /var/www/walhi_app && ./docker-backup.sh >> /var/log/walhi_backup.log 2>&1"
+(crontab -l 2>/dev/null | grep -Fv "walhi-backup.sh" | grep -Fv "docker-backup.sh" ; echo "$CRON_JOB") | crontab -
+echo "ℹ️  Atur OFFSITE_BACKUP_TARGET (rclone/S3) dan BACKUP_ALERT_WEBHOOK di .env agar backup juga tersimpan di luar server."
 
-if docker ps | grep -q walhi_prod_db; then
-    docker exec walhi_prod_db sh -c 'exec mysqldump -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE"' | gzip > "$TARGET_FILE"
-    chmod 600 "$TARGET_FILE"
-    # Hapus backup yang lebih tua dari 14 hari
-    find "$BACKUP_DIR" -type f -name "*.sql.gz" -mtime +14 -delete
+# 7. Hardening dasar
+echo "🔐 [7/7] Hardening SSH & proteksi brute-force..."
+DEBIAN_FRONTEND=noninteractive apt-get install -y fail2ban unattended-upgrades
+cat > /etc/fail2ban/jail.d/walhi-sshd.local <<'JAIL'
+[sshd]
+enabled = true
+maxretry = 5
+findtime = 10m
+bantime = 1h
+JAIL
+systemctl enable --now fail2ban
+dpkg-reconfigure -f noninteractive unattended-upgrades || true
+
+# Docker log rotation. (Setting "userland-proxy": false keeps IPv4 client IPs exact but
+# drops IPv6 access unless Docker IPv6 is configured — see DEPLOYMENT.md, not done here.)
+if [ ! -f /etc/docker/daemon.json ]; then
+    echo '{ "log-driver": "json-file", "log-opts": { "max-size": "20m", "max-file": "5" } }' > /etc/docker/daemon.json
+    systemctl restart docker
 fi
-EOF
-chmod +x "$BACKUP_SCRIPT"
 
-# Pasang cron jika belum ada
-CRON_JOB="0 2 * * * /usr/local/bin/walhi-backup.sh >/dev/null 2>&1"
-(crontab -l 2>/dev/null | grep -Fv "$BACKUP_SCRIPT" ; echo "$CRON_JOB") | crontab -
+# Password login for SSH is disabled only after confirming a working key exists,
+# so the operator cannot lock themselves out.
+if [ -s /root/.ssh/authorized_keys ] || ls /home/*/.ssh/authorized_keys >/dev/null 2>&1; then
+    read -r -p "Nonaktifkan login SSH dengan password (wajib pakai SSH key)? [y/N] " disable_pw
+    if [ "${disable_pw:-N}" = "y" ] || [ "${disable_pw:-N}" = "Y" ]; then
+        cat > /etc/ssh/sshd_config.d/99-walhi-hardening.conf <<'SSHD'
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PermitRootLogin prohibit-password
+SSHD
+        if sshd -t; then
+            systemctl reload ssh 2>/dev/null || systemctl reload sshd
+            echo "✅ Login SSH password dinonaktifkan."
+        else
+            rm -f /etc/ssh/sshd_config.d/99-walhi-hardening.conf
+            echo "❌ Konfigurasi SSH tidak valid; perubahan dibatalkan."
+        fi
+    fi
+else
+    echo "⚠️  Belum ada SSH key terpasang; login password TIDAK dinonaktifkan. Pasang key lalu jalankan ulang skrip ini."
+fi
+
+echo ""
+echo "⚠️  Catatan firewall: port yang dipublish Docker (80/443) melewati aturan UFW."
+echo "   Untuk membatasi sumber (mis. hanya IP Cloudflare), gunakan chain DOCKER-USER"
+echo "   atau firewall penyedia cloud. Lihat DEPLOYMENT.md."
 
 echo ""
 echo "==================================================================="
@@ -112,13 +144,13 @@ echo ""
 echo "2. Buat file .env produksi:"
 echo "   cp .env.production.example .env"
 echo "   nano .env"
-echo "   (Setel DB_PASSWORD, APP_KEY, ADMIN_PASSWORD, APP_URL)"
+echo "   (Setel APP_KEY, DB_PASSWORD, DB_ROOT_PASSWORD, REDIS_PASSWORD, ADMIN_PASSWORD, APP_URL, NGINX_SERVER_NAME)"
 echo ""
-echo "3. Jalankan aplikasi:"
-echo "   docker compose -f docker-compose.prod.yml up -d --build"
+echo "3. Deploy (build image, migrasi, health check):"
+echo "   ./deploy.sh production"
 echo ""
-echo "4. Jalankan migrasi database:"
-echo "   docker compose -f docker-compose.prod.yml exec app php artisan migrate --force"
+echo "4. Aktifkan HTTPS setelah DNS mengarah ke server:"
+echo "   sudo ./setup-ssl.sh walhijabar.co.id"
 echo ""
 echo "5. Buat Akun Administrator (Pilih salah satu):"
 echo "   a) Interaktif via terminal:"

@@ -38,6 +38,10 @@ x-laravel: &laravel
     CACHE_STORE: "${CACHE_STORE:-redis}"
     CACHE_PREFIX: "${CACHE_PREFIX:-walhi_cache_}"
     QUEUE_CONNECTION: "${QUEUE_CONNECTION:-redis}"
+    # Maintenance mode is shared through Redis, so it survives container recreation
+    # during a deploy (deploy.sh puts the site down before migrating).
+    APP_MAINTENANCE_DRIVER: "${APP_MAINTENANCE_DRIVER:-cache}"
+    APP_MAINTENANCE_STORE: "${APP_MAINTENANCE_STORE:-redis}"
 
     # Logging
     LOG_CHANNEL: "${LOG_CHANNEL:-daily}"
