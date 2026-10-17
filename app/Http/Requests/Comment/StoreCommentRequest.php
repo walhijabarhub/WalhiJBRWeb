@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Comment;
 
+use App\Rules\Turnstile;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreCommentRequest extends FormRequest
@@ -25,12 +26,12 @@ class StoreCommentRequest extends FormRequest
 
     public function rules(): array
     {
-        return [
+        return array_merge([
             'author_name' => ['required', 'string', 'max:255'],
             'author_email' => ['required', 'email:rfc', 'max:255'],
             'body' => ['required', 'string', 'min:5', 'max:5000'],
             'parent_id' => ['nullable', 'integer', 'exists:comments,id'],
-        ];
+        ], Turnstile::rules());
     }
 
     public function messages(): array
@@ -43,6 +44,7 @@ class StoreCommentRequest extends FormRequest
             'body.min' => 'Komentar minimal 5 karakter.',
             'body.max' => 'Komentar maksimal 5.000 karakter.',
             'parent_id.exists' => 'Komentar yang dibalas tidak ditemukan.',
+            Turnstile::FIELD.'.required' => Turnstile::message(),
         ];
     }
 

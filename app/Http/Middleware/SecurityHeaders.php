@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Rules\Turnstile;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Vite;
@@ -64,6 +65,14 @@ class SecurityHeaders
 
         if ($request->isSecure()) {
             $cspDirectives[] = 'upgrade-insecure-requests';
+        }
+
+        // Cloudflare Turnstile (only when configured): its script and challenge iframe.
+        if (Turnstile::enabled()) {
+            $cspDirectives = array_map(fn (string $directive) => match (true) {
+                str_starts_with($directive, 'script-src '), str_starts_with($directive, 'frame-src ') => $directive.' https://challenges.cloudflare.com',
+                default => $directive,
+            }, $cspDirectives);
         }
 
         $response->headers->set('Content-Security-Policy', implode('; ', $cspDirectives));
