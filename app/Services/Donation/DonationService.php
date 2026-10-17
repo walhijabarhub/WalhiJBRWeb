@@ -4,6 +4,7 @@ namespace App\Services\Donation;
 
 use App\Enums\DonationStatus;
 use App\Models\Donation;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
@@ -87,11 +88,11 @@ class DonationService
      *
      * @return bool true if status was updated, false if rejected or no change (idempotent)
      */
-    public function processWebhook(Donation $donation, string $transactionStatus, ?string $paymentType): bool
+    public function processWebhook(Donation $donation, string $transactionStatus, ?string $paymentType, ?string $fraudStatus = null): bool
     {
-        $targetStatus = DonationStatus::fromMidtrans($transactionStatus);
+        $targetStatus = DonationStatus::fromMidtrans($transactionStatus, $fraudStatus);
 
-        return (bool) \Illuminate\Support\Facades\DB::transaction(function () use ($donation, $targetStatus, $paymentType, $transactionStatus) {
+        return (bool) DB::transaction(function () use ($donation, $targetStatus, $paymentType, $transactionStatus) {
             $locked = Donation::where('id', $donation->id)->lockForUpdate()->first();
             if (! $locked) {
                 return false;
@@ -126,6 +127,55 @@ class DonationService
 
             return true;
         });
+    }
+
+    /**
+     * Update a donation from the authoritative Midtrans status API.
+     *
+     * The webhook signature only covers order_id, status_code and gross_amount, so the
+     * final status is confirmed here instead of trusting the notification body.
+     *
+     * @return bool|null true/false as processWebhook(), null when Midtrans has no such transaction
+     *
+     * @throws \RuntimeException when the status API cannot be reached or the amount does not match
+     */
+    public function syncFromGateway(Donation $donation): ?bool
+    {
+        $status = $this->midtrans->getStatus($donation->order_id);
+
+        if ($status === null) {
+            return null;
+        }
+
+        if ((int) floatval($status['gross_amount'] ?? 0) !== (int) $donation->amount) {
+            Log::warning('Midtrans status amount mismatch', [
+                'order_id' => $donation->order_id,
+                'database_amount' => $donation->amount,
+                'gateway_amount' => $status['gross_amount'] ?? null,
+            ]);
+
+            throw new \RuntimeException('Midtrans status amount does not match the stored donation.');
+        }
+
+        return $this->processWebhook(
+            $donation,
+            (string) ($status['transaction_status'] ?? ''),
+            $status['payment_type'] ?? null,
+            $status['fraud_status'] ?? null,
+        );
+    }
+
+    /**
+     * Mark a pending donation as expired (no-op for any other status).
+     */
+    public function expire(Donation $donation): bool
+    {
+        return $this->processWebhook($donation, 'expire', null);
+    }
+
+    public function gatewayConfigured(): bool
+    {
+        return $this->midtrans->isConfigured();
     }
 
     /**
