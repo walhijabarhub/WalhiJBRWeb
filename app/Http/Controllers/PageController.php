@@ -153,7 +153,7 @@ class PageController extends Controller
 
     public function sitemap()
     {
-        $contents = Cache::remember(ContentCache::SITEMAP, now()->addHour(), fn () => Content::select('slug', 'updated_at')
+        $contents = ContentCache::remember(ContentCache::SITEMAP, now()->addHour(), fn () => Content::select('slug', 'updated_at')
             ->published()
             ->orderBy('updated_at', 'desc')
             ->get());

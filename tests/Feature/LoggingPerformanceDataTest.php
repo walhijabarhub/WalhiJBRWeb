@@ -120,6 +120,22 @@ class LoggingPerformanceDataTest extends TestCase
         $this->get('/')->assertSee('Berita Terbaru');
     }
 
+    public function test_cached_pages_render_from_a_serializing_cache_store(): void
+    {
+        // Regression: Laravel 13 refuses to unserialize objects (cache.serializable_classes
+        // = false), so caching Eloquent models broke every request after the first.
+        config(['cache.default' => 'file', 'cache.serializable_classes' => false]);
+        Cache::flush();
+        $this->content(['title' => 'Berita Tersimpan', 'slug' => 'berita-tersimpan']);
+
+        foreach ([1, 2, 3] as $attempt) {
+            $this->get('/')->assertOk()->assertSee('Berita Tersimpan');
+            $this->get('/sitemap.xml')->assertOk()->assertSee('berita-tersimpan');
+        }
+
+        Cache::flush();
+    }
+
     public function test_homepage_loads_at_most_seven_news_items(): void
     {
         foreach (range(1, 12) as $i) {
