@@ -8,7 +8,7 @@ Dokumen ini berisi panduan langkah-demi-langkah untuk mendeploy dan mengoperasik
 1. [Spesifikasi Server Minimum](#-spesifikasi-server-rekomendasi)
 2. [Langkah Deployment Produksi (Docker Compose)](#-langkah-deployment-cepat-turnkey-vps-setup)
 3. [Konfigurasi Domain & SSL (HTTPS)](#-konfigurasi-domain--ssl-https)
-4. [Backup & Restore Database Otomatis](#-backup--restore-database-otomatis)
+4. [Backup & Restore (Database + File Unggahan)](#-backup--restore-database--file-unggahan)
 5. [Monitoring & Manajemen Log](#-monitoring-alokasi-ram--benchmark)
 6. [Otomasi Deployment (CI/CD) GitHub Actions (Branch: production)](#-otomasi-deployment-cicd-github-actions-branch-production)
 7. [Integritas & Keamanan Database VPS (Anti-Reset & Anti-Data Loss)](#-integritas--keamanan-database-vps-anti-reset)
@@ -23,7 +23,7 @@ Dokumen ini berisi panduan langkah-demi-langkah untuk mendeploy dan mengoperasik
 - **RAM:** 8 GB (Telah di-tuning untuk alokasi MySQL 2.5 GB + PHP-FPM 3.0 GB + OS margin 2.5 GB)
 - **Disk:** 100 GB NVMe / SSD
 - **Bandwidth:** 8 TB / bulan
-- **Software Terpasang:** Docker Engine & Docker Compose v2 (`docker-compose-plugin`)
+- **Software Terpasang:** Docker Engine & Docker Compose v2.20+ (`docker-compose-plugin`, dibutuhkan untuk `up --wait`)
 
 ---
 
@@ -154,28 +154,31 @@ Nginx adalah server terdepan; IP klien diteruskan ke PHP sebagai `REMOTE_ADDR`, 
 
 ---
 
-## 💾 Backup & Restore Database Otomatis
+## 💾 Backup & Restore (Database + File Unggahan)
 
-### Menjalankan Backup Manual:
+`docker-backup.sh` membuat dua berkas per backup: dump MySQL (`*_mysql_*.sql.gz`) dan arsip `storage/app` (`*_files_*.tar.gz`, berisi dokumen privat dan unggahan publik). Skrip **berhenti dengan error** bila dump gagal, terpotong, atau arsip rusak, dan bisa mengirim notifikasi kegagalan.
+
+### Pengaturan (di `.env` server)
+| Variabel | Fungsi |
+| :--- | :--- |
+| `BACKUP_DIR` | Lokasi backup lokal (default `/var/backups/walhi`) |
+| `OFFSITE_BACKUP_TARGET` | **Sangat disarankan.** Remote `rclone` (mis. `r2:walhi-backups`) atau `s3://bucket/path` |
+| `BACKUP_ALERT_WEBHOOK` | URL (Slack/Discord/dll.) yang menerima pesan JSON saat backup gagal |
+| `BACKUP_RETENTION_DAYS` | Retensi backup rutin (default 14 hari; snapshot pra-deploy 30 hari) |
+
+### Backup manual & otomatis
 ```bash
+cd /var/www/walhi_app
 ./docker-backup.sh
 ```
-File backup terkompresi (`.sql.gz`) akan tersimpan di folder `storage/backups/`.
+`setup-vps.sh` memasang cron harian pukul 02.00 yang memanggil skrip yang sama (log: `/var/log/walhi_backup.log`). `deploy.sh` selalu membuat snapshot `walhi_predeploy_*` sebelum deploy dan **membatalkan deploy** bila backup gagal.
 
-### Mengatur Backup Otomatis Harian (Cron Job):
-Buka crontab server:
+### Restore
 ```bash
-crontab -e
+./docker-restore.sh /var/backups/walhi/walhi_prod_mysql_YYYYMMDD_HHMMSS.sql.gz \
+                    /var/backups/walhi/walhi_prod_files_YYYYMMDD_HHMMSS.tar.gz
 ```
-Tambahkan baris berikut untuk backup otomatis setiap jam 02.00 dini hari:
-```cron
-0 2 * * * cd /var/www/walhi_app && ./docker-backup.sh >> /var/log/walhi_backup.log 2>&1
-```
-
-### Melakukan Restore Database dari File Backup:
-```bash
-gunzip < storage/backups/walhi_prod_mysql_YYYYMMDD_HHMMSS.sql.gz | docker exec -i walhi_prod_db mysql -u <DB_USERNAME> -p<DB_PASSWORD> <DB_DATABASE>
-```
+Skrip meminta konfirmasi (`restore`), mengaktifkan maintenance mode, memulihkan database dan (opsional) file, lalu mematikan maintenance mode. **Uji restore secara berkala** (mis. tiap bulan di server staging) — backup yang belum pernah dipulihkan belum terbukti.
 
 ---
 
@@ -215,78 +218,62 @@ docker compose -f docker-compose.prod.yml logs -f app
 
 ## 🚀 Otomasi Deployment (CI/CD) GitHub Actions (Branch: production)
 
-Aplikasi web WALHI Jawa Barat telah dikonfigurasi dengan pipeline CI/CD otomatis menggunakan **GitHub Actions** dan **SSH Deploy Key**.
+Saat ada push ke `production`, workflow `deploy.yml` menjalankan:
+1. **Gatekeeper:** seluruh test (`php artisan test`) dan `composer audit`. Gagal = tidak ada yang dideploy.
+2. **Build image sekali di CI** dan push ke GHCR sebagai `ghcr.io/irs622/walhi_larafel:<12-char-commit-sha>`. VPS tidak lagi membangun image.
+3. **Deploy via SSH** (host key diverifikasi lewat `fingerprint`, environment `production` dengan reviewer) yang memanggil `./deploy.sh production <sha>` dari commit yang sama.
 
-Ketika Anda melakukan `git push origin production`:
-1. **Gatekeeper (Testing & Security):** GitHub Actions secara otomatis menjalankan seluruh 133 tes otomatis (`php artisan test`), kompilasi aset frontend (`npm run build`), dan audit keamanan dependensi (`composer audit`).
-2. **Fail-Closed Protection:** Jika ada satupun tes yang gagal atau ada error sintaks, proses deploy **langsung dibatalkan**. Server live VPS Anda **tidak akan disentuh sama sekali oleh kode rusak**.
-3. **Automated SSH Execution:** Jika seluruh pengujian lulus 100%, GitHub Actions menghubungkan ke VPS melalui SSH dan mengeksekusi skrip rilis aman `./deploy.sh production`.
+Workflow `ci.yml` menjalankan test di SQLite **dan MySQL 8.0**, build aset, build image, dan validasi `docker-compose.prod.yml`. Workflow `security.yml` menjalankan gitleaks (seluruh riwayat), `composer audit`, dan `npm audit`. Semua action dikunci ke commit SHA; Dependabot memperbarui dependensi tiap minggu.
 
 ```mermaid
 flowchart LR
-    A["Developer<br>(git push origin production)"] --> B["GitHub Actions CI<br>(133 Tests + Security Audit)"]
-    B -->|"Lulus 100%"| C["SSH ke VPS<br>(ed25519 Key)"]
-    B -->|"Gagal"| D["❌ Batal Otomatis<br>(VPS Aman)"]
-    C --> E["deploy.sh<br>(Auto-Backup + Migrate + Zero-Downtime)"]
-    E --> F["✅ Live Website Updated"]
+    A["git push production"] --> B["Test + audit"]
+    B -->|lulus| C["Build & push image GHCR (tag = commit)"]
+    B -->|gagal| X["❌ Batal — VPS tidak disentuh"]
+    C --> D["SSH (fingerprint) → deploy.sh"]
+    D --> E["Backup → migrate (image baru) → swap → health check"]
+    E -->|sehat| F["✅ Live"]
+    E -->|gagal| G["↩️ Rollback otomatis ke image sebelumnya"]
 ```
 
----
+### Alur `deploy.sh`
+1. Pre-flight: `.env`, variabel wajib (`APP_KEY`, `DB_PASSWORD`, `DB_ROOT_PASSWORD`, `REDIS_PASSWORD`), ruang disk ≥ 2 GB, dan `NGINX_CONF=https` otomatis bila sertifikat ada.
+2. Backup database + file (gagal = deploy batal; darurat: `SKIP_BACKUP=true`).
+3. Checkout commit, ambil image (pull dari GHCR bila `APP_IMAGE` berisi registry, build lokal bila tidak).
+4. Maintenance mode lewat Redis (bertahan meski container dibuat ulang). Secret bypass acak per deploy.
+5. **Migrasi dengan image baru sebelum swap** (`docker compose run --rm app php artisan migrate --force`). Bila gagal, versi lama tetap melayani.
+6. Swap container + restart nginx (template dirender ulang).
+7. Health check (`/up` lewat nginx). Bila gagal → **rollback otomatis** ke tag terakhir yang sehat (`.deploy/last_good_tag`). Catatan: migrasi yang sudah jalan tidak dibatalkan otomatis; gunakan `docker-restore.sh` dengan snapshot pra-deploy bila perlu.
 
-### 🔑 Langkah Setup Kunci SSH & GitHub Repository Secrets (Sekali Saja)
+### 🔑 Setup sekali
+1. **SSH key deploy** di VPS:
+   ```bash
+   ssh-keygen -t ed25519 -C "github-actions-walhi-deploy" -f ~/.ssh/id_ed25519_deploy -N ""
+   cat ~/.ssh/id_ed25519_deploy.pub >> ~/.ssh/authorized_keys
+   ssh-keyscan -t ed25519 localhost | ssh-keygen -lf -   # salin fingerprint SHA256:...
+   ```
+2. **Secrets** (Settings → Secrets and variables → Actions):
 
-Agar GitHub Actions dapat terhubung ke VPS secara aman tanpa password:
+   | Secret | Nilai |
+   | :--- | :--- |
+   | `VPS_HOST` | IP/domain VPS |
+   | `VPS_USERNAME` | User SSH dengan akses docker |
+   | `VPS_SSH_KEY` | Isi private key `~/.ssh/id_ed25519_deploy` |
+   | `VPS_SSH_PORT` | Port SSH (default 22) |
+   | `VPS_SSH_FINGERPRINT` | Fingerprint host key, format `SHA256:...` |
+3. **Environment `production`** (Settings → Environments): tambahkan *required reviewers* agar deploy perlu persetujuan.
+4. **Akses image GHCR di VPS:** jadikan package `walhi_larafel` *public* (Packages → Package settings), **atau** login sekali di VPS dengan token `read:packages`:
+   ```bash
+   echo "<TOKEN>" | docker login ghcr.io -u <github-username> --password-stdin
+   ```
+5. Pastikan **GitHub Actions aktif** untuk akun/repo (masalah billing pada akun membuat semua job gagal start).
 
-#### 1. Buat Kunci SSH Khusus Deployment di VPS Anda:
-Masuk ke terminal server VPS dan jalankan:
+### Deploy manual dari VPS
 ```bash
-# Generate key pair tipe ed25519 khusus deploy
-ssh-keygen -t ed25519 -C "github-actions-walhi-deploy" -f ~/.ssh/id_ed25519_deploy -N ""
-
-# Tambahkan public key ke daftar authorized_keys VPS:
-cat ~/.ssh/id_ed25519_deploy.pub >> ~/.ssh/authorized_keys
-chmod 600 ~/.ssh/authorized_keys
-chmod 700 ~/.ssh
-
-# Tampilkan Private Key untuk disalin ke GitHub:
-cat ~/.ssh/id_ed25519_deploy
-```
-*(Salin seluruh teks private key yang dimulai dari `-----BEGIN OPENSSH PRIVATE KEY-----` sampai `-----END OPENSSH PRIVATE KEY-----`).*
-
-#### 2. Daftarkan 4 Secret di GitHub Repository:
-Buka repositori GitHub Anda: **Settings** ➔ **Secrets and variables** ➔ **Actions** ➔ **New repository secret**:
-
-| Nama Secret | Nilai / Deskripsi |
-| :--- | :--- |
-| `VPS_HOST` | IP Publik VPS Anda (contoh: `103.175.xxx.xxx` atau domain server) |
-| `VPS_USERNAME` | Username SSH VPS (contoh: `root` atau user dengan akses docker) |
-| `VPS_SSH_KEY` | Seluruh isi private key `~/.ssh/id_ed25519_deploy` yang tadi disalin |
-| `VPS_SSH_PORT` | Port SSH server Anda (default: `22`) |
-
-Setelah 4 secret di atas disimpan, setiap kali Anda melakukan `git push origin production`, server VPS akan otomatis menarik dan menerapkan perubahan secara instan!
-
----
-
-### 🛠️ Prosedur Manual Pembaruan Aplikasi (Jika Ingin Deploy dari Terminal VPS)
-
-Jika Anda sedang berada di dalam server VPS dan ingin melakukan pembaruan secara manual:
-
-```bash
-# Cukup jalankan satu perintah ini:
 cd /var/www/walhi_app
-./deploy.sh production
+APP_IMAGE=ghcr.io/irs622/walhi_larafel ./deploy.sh production   # pakai image dari CI
+./deploy.sh production                                            # atau build di server
 ```
-
-Skrip `./deploy.sh` secara otomatis menjalankan:
-1. Validasi pre-flight (ruang disk dan status docker).
-2. **Snapshot backup otomatis database** ke `storage/backups/walhi_predeploy_*.sql.gz`.
-3. Maintenance mode anggun (`php artisan down --secret=...`).
-4. `git pull origin production` secara deterministik.
-5. Rebuild container Docker (`docker compose -f docker-compose.prod.yml up -d --build`).
-6. Migrasi database non-destruktif (`php artisan migrate --force`).
-7. Optimasi cache produksi (`config:cache`, `route:cache`, `view:cache`).
-8. Menonaktifkan maintenance mode (`php artisan up`).
-9. Health check HTTP status ke server lokal.
 
 ---
 
