@@ -18,7 +18,7 @@ class PublicContentController extends Controller
 {
     public function home()
     {
-        $sections = Cache::remember(ContentCache::HOME, now()->addMinutes(10), function () {
+        $sections = ContentCache::remember(ContentCache::HOME, now()->addMinutes(10), function () {
             // Only the featured item and six cards are shown, so never load every article.
             $news = Content::ofCategory(ContentCategory::newsValues())
                 ->published()
