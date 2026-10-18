@@ -37,7 +37,7 @@ This document is the **primary entrypoint and operating manual** for modern AI c
 ```text
 WalhiJBRWeb/
 ├── .agents/rules/secure_coding.md # Enforced coding & security rules (read before editing)
-├── .github/workflows/             # ci.yml, security.yml, deploy.yml (production), sync-main.yml
+├── .github/workflows/             # ci.yml, security.yml, deploy.yml (production), sync-main.yml, reviewbot.yml
 ├── app/
 │   ├── Console/Commands/          # walhi:create-admin, walhi:reset-2fa, walhi:donations-reconcile, walhi:flush-views,
 │   │                              # walhi:prune-personal-data, walhi:migrate-documents, import commands
@@ -271,7 +271,8 @@ Before touching any code:
 3. **Inspect Related Tests:** Read corresponding test file in `tests/Feature/`.
 4. **Verify Authorization:** Ensure Laravel Policy checks (`ContentPolicy`) or middleware checks (`role:...`) are present.
 5. **Make Minimal Safe Change:** Do not refactor unrelated files or rewrite working patterns.
-6. **Branch from `production`:** `git switch -c <type>/<name> origin/production`. PRs target `production`; never commit to `main` (it is fast-forwarded automatically) or `prod` (deprecated). Merging to `production` deploys to the live server.
+6. **Automatic review:** every PR is checked by `walhijabar_reviewbot` ([docs/reviewbot.md](docs/reviewbot.md)); a blocker fails the check. Run it locally with `python3 .github/reviewbot/walhijabar_reviewbot.py --base origin/production --head HEAD --no-annotations`.
+7. **Branch from `production`:** `git switch -c <type>/<name> origin/production`. PRs target `production`; never commit to `main` (it is fast-forwarded automatically) or `prod` (deprecated). Merging to `production` deploys to the live server.
 
 After modifying code:
 
