@@ -12,8 +12,8 @@ Kami secara aktif memelihara dan memberikan pembaruan keamanan (*security patche
 
 | Versi | Didukung Pembaruan Keamanan |
 | :--- | :---: |
-| **v1.x (Laravel 13.x / PHP 8.4)** | :white_check_mark: Ya |
-| **< v1.0** | :x: Tidak |
+| **Branch `production`** (yang sedang live; `main` adalah cerminnya) | :white_check_mark: Ya |
+| Branch `prod` (usang) dan branch lain | :x: Tidak |
 
 ---
 
@@ -50,9 +50,15 @@ Untuk mempercepat proses investigasi dan mitigasi, mohon sertakan:
 
 Secara arsitektural, platform web ini mengadopsi standar pengamanan berlapis (*Defense-in-Depth*):
 
-1. **Proteksi Injeksi SQL & Input Sanitization:** Seluruh interaksi basis data wajib menggunakan *Prepared Statements* (Eloquent ORM & PDO parameter bindings) serta sanitasi input otomatis via Form Request Validation dan HTMLPurifier.
-2. **Proteksi Sesi & CSRF:** Seluruh permintaan mutasi data (POST/PUT/DELETE) dilindungi oleh *CSRF Token Validation*, cookie sesi terenkripsi (*encrypted sessions*), dan atribut `HttpOnly` serta `SameSite=Lax`.
-3. **HTTP Security Headers:** Penerapan *Content Security Policy (CSP)*, *X-Content-Type-Options: nosniff*, *X-Frame-Options: SAMEORIGIN*, dan *Referrer-Policy* untuk mencegah serangan XSS, Clickjacking, dan MIME-sniffing.
-4. **Isolasi Lingkungan Produksi:** Penonaktifan *Debug Mode* (`APP_DEBUG=false`) secara mutlak pada lingkungan live guna mencegah *Error-based Information Leakage*.
-5. **Autentikasi & Otorisasi Ketat:** Pembatasan hak akses berbasis peran (*Role-Based Access Control*) dan kebijakan otorisasi (*Laravel Policies*) pada seluruh modul administratif.
-
+1. **Proteksi Injeksi SQL & Validasi Input:** seluruh query memakai Eloquent / parameter binding; input divalidasi FormRequest; URL dibatasi `App\Rules\SafeUrl` (hanya `http(s)://`, `/…`, `#…`).
+2. **Proteksi XSS:** HTML konten disanitasi HTMLPurifier saat disimpan dan saat ditampilkan; Blade `{{ }}` untuk semua teks lain.
+3. **Content Security Policy ketat:** nonce per request, tanpa `unsafe-inline`/`unsafe-eval` untuk script, handler inline dilarang (`script-src-attr 'none'`), skrip CDN di-pin ke versi tertentu + SRI.
+4. **HTTP Security Headers:** HSTS (HTTPS), `X-Content-Type-Options: nosniff`, `X-Frame-Options: SAMEORIGIN`, `Referrer-Policy`, `Permissions-Policy`, `X-Robots-Tag` untuk area admin.
+5. **Autentikasi kuat:** URL login tersembunyi, registrasi publik nonaktif, rate limit per akun + IP, password minimal 12 karakter campuran, **2FA TOTP wajib** untuk admin/editor beserta *recovery codes*.
+6. **Otorisasi:** RBAC (`admin`, `editor`, `subscriber`) lewat middleware `role:` dan Laravel Policies; kategori sensitif & aksi hapus hanya Admin.
+7. **Dokumen privat:** dokumen organisasi disimpan di luar webroot dan diunduh lewat endpoint terotorisasi dengan nama file yang disanitasi.
+8. **Pembayaran:** webhook Midtrans diverifikasi signature SHA-512, nominal dicocokkan, status dikonfirmasi ke Status API, transisi status dikunci (`lockForUpdate`) dan `success` bersifat final.
+9. **Anti-spam:** honeypot, rate limit, CAPTCHA Cloudflare Turnstile opsional (fail-closed).
+10. **Jejak audit & privasi:** aksi administratif tercatat di `audit_logs` dan `audit.log`; data pribadi lama dianonimkan otomatis; newsletter *double opt-in*.
+11. **Infrastruktur:** `APP_DEBUG=false`, sesi terenkripsi di Redis ber-password, Redis/MySQL tidak dipublish, backup harian terverifikasi. `setup-vps.sh` menyediakan pengerasan SSH (key-only, `PermitRootLogin prohibit-password`) dan fail2ban; pastikan keduanya benar-benar aktif di server (lihat [docs/operations.md](docs/operations.md)).
+12. **Rantai pasok:** semua GitHub Action di-pin ke commit SHA, gitleaks memindai seluruh riwayat, `composer audit` & `npm audit` tiap minggu, Dependabot aktif, image produksi dibangun di CI.

@@ -11,17 +11,27 @@ Terima kasih telah tertarik untuk berkontribusi pada proyek pengembangan website
 4. [📜 Ketentuan & Aturan Pull Request (PR Rules)](#-ketentuan--aturan-pull-request)
 5. [Langkah Membuat Pull Request (Step-by-Step)](#-langkah-membuat-pull-request)
 6. [Menjalankan Pengujian (Testing)](#-menjalankan-pengujian)
-7. [Pelaporan Masalah (Reporting Issues)](#-pelaporan-masalah)
+7. [Pelaporan Masalah (Reporting Issues)](#-pelaporan-masalah-issues)
 
 ---
 
 ## 🌿 Alur Kerja Git & Percabangan
 
-Repository ini menggunakan model percabangan dua jalur utama:
-- **`prod`** : Branch **Produksi (Production/Live)**. Selalu berisi kode stabil yang sedang berjalan di server live WALHI Jawa Barat.
-- **`main`** : Branch **Pengembangan Utama (Development & Staging)**. Tempat penggabungan seluruh fitur dan perbaikan yang telah ditinjau.
+| Branch | Peran |
+| :--- | :--- |
+| **`production`** | **Patokan utama (source of truth).** Isinya selalu kode yang sedang live di server WALHI Jawa Barat. Setiap merge ke branch ini **otomatis dideploy** ke VPS lewat GitHub Actions (`deploy.yml`). Semua PR diarahkan ke sini. |
+| **`main`** | **Cermin (mirror) dari `production`.** Tidak menerima commit atau PR sendiri. Workflow `sync-main.yml` mem-*fast-forward* `main` ke `production` setiap kali `production` berubah. |
+| `prod` | **Usang (deprecated).** Branch lama dari sebelum audit Oktober 2026 dan sudah jauh tertinggal. Jangan dipakai sebagai dasar branch atau target PR; dibiarkan hanya sebagai arsip. |
 
-Semua pengembangan fitur, perbaikan bug, dan perubahan dokumentasi harus dilakukan pada branch terpisah sebelum digabungkan (*merged*) ke `main` melalui Pull Request, lalu dirilis ke `prod`.
+Alur singkat:
+
+```text
+branch kerja (feat/…, fix/…, docs/…)  ──PR──►  production  ──(otomatis)──►  deploy ke VPS
+                                                    │
+                                                    └──(otomatis)──►  main (fast-forward)
+```
+
+Karena merge ke `production` langsung tayang, pastikan CI hijau dan perubahan sudah diuji lokal sebelum merge. Untuk perubahan berisiko (migrasi besar, konfigurasi server), koordinasikan waktu merge dengan pengelola server.
 
 ### Format Penamaan Branch:
 - `feat/nama-fitur` : Untuk penambahan fitur baru (contoh: `feat/payment-gateway-midtrans`).
@@ -29,7 +39,7 @@ Semua pengembangan fitur, perbaikan bug, dan perubahan dokumentasi harus dilakuk
 - `refactor/nama-refactor` : Untuk restrukturisasi kode tanpa mengubah fungsionalitas (contoh: `refactor/audit-log-service`).
 - `docs/nama-dokumen` : Untuk pembaruan dokumentasi (contoh: `docs/api-documentation`).
 - `style/nama-styling` : Untuk penyesuaian tampilan CSS/Tailwind (contoh: `style/neo-brutalist-card`).
-- `hotfix/nama-masalah` : Untuk perbaikan mendesak di production langsung dari `main`.
+- `hotfix/nama-masalah` : Untuk perbaikan mendesak di production, dibuat dari `production`.
 
 ---
 
@@ -71,6 +81,10 @@ Daftar `type`:
 - Gunakan **Tailwind CSS** untuk utility styling.
 - Pertahankan tema desain **Neo-Brutalist WALHI** (border hitam tegas `#1D1D1D`, bayangan blok `shadow-[4px_4px_0px_0px_#1D1D1D]`, palet warna hijau hutan `#256D4A`, krem `#F4F1EA`, dan oranye terakota `#D95C3F`).
 - Hindari penggunaan CDN eksternal jika memungkinkan; gunakan **native inline SVG** untuk ikon agar tidak ada kegagalan rendering saat koneksi offline/lambat.
+- **Content Security Policy ketat:** jangan menulis `onclick=`, `onsubmit=`, atau handler inline lain, dan jangan menulis `<script>` tanpa `nonce="{{ Vite::cspNonce() }}"`. Pakai atribut `data-on-click` dkk. (lihat [docs/frontend.md](docs/frontend.md)).
+
+### 3. Keamanan
+- Ikuti [.agents/rules/secure_coding.md](.agents/rules/secure_coding.md) (berlaku untuk manusia maupun AI agent).
 
 ---
 
@@ -83,11 +97,11 @@ Setiap Pull Request yang diajukan ke repository ini **wajib mematuhi ketentuan b
 - PR yang fokus dan berukuran kecil/sedang (< 400 baris perubahan) akan ditinjau dan di-merge jauh lebih cepat.
 
 ### 2. Bebas Konflik (*No Merge Conflicts*)
-- Branch pengaju PR **wajib up-to-date** dengan branch `main` terbaru sebelum mengajukan review:
+- Branch pengaju PR **wajib up-to-date** dengan branch `production` terbaru sebelum mengajukan review:
   ```bash
   git checkout feat/nama-fitur
   git fetch origin
-  git merge origin/main
+  git merge origin/production
   ```
 - Jika ada konflik, selesaikan (*resolve*) di branch Anda terlebih dahulu.
 
@@ -107,8 +121,8 @@ Setiap Pull Request yang diajukan ke repository ini **wajib mematuhi ketentuan b
 - **Responsif terhadap Masukan**: Pembuat PR diharapkan menanggapi dan merevisi catatan/komentar dari reviewer secara berkala.
 
 ### 6. Strategi Penggabungan (Merge Strategy)
-- Gunakan metode **Squash and Merge** untuk fitur kecil/sedang agar git log pada `main` tetap bersih dan linear.
-- Gunakan metode **Create a Merge Commit** untuk fitur besar atau rilis sprint terencana.
+- Gunakan metode **Squash and Merge** agar riwayat `production` tetap bersih dan linear (satu commit per PR). Judul commit squash = judul PR beserta nomornya.
+- Jangan pernah melakukan *force push* ke `production` atau `main`.
 - Selalu **hapus branch fitur** setelah PR berhasil di-merge (*Delete branch after merge*).
 
 ---
@@ -118,13 +132,13 @@ Setiap Pull Request yang diajukan ke repository ini **wajib mematuhi ketentuan b
 1. **Fork atau Clone Repository:**
    ```bash
    git clone https://github.com/walhijabarhub/WalhiJBRWeb.git
-   cd walhi_larafel
+   cd WalhiJBRWeb
    ```
 
-2. **Buat Branch Baru dari `main`:**
+2. **Buat Branch Baru dari `production`:**
    ```bash
-   git checkout main
-   git pull origin main
+   git checkout production
+   git pull origin production
    git checkout -b feat/nama-fitur-kamu
    ```
 
@@ -146,8 +160,10 @@ Setiap Pull Request yang diajukan ke repository ini **wajib mematuhi ketentuan b
 
 6. **Buka Pull Request (PR):**
    - Buka repository di GitHub dan klik **Compare & pull request**.
+   - Pastikan **base branch = `production`**.
    - Isi deskripsi sesuai template PR.
    - Tetapkan reviewer dari tim Anda.
+   - Tunggu seluruh check CI (`CI`, `Security Audit`) hijau sebelum merge.
 
 ---
 
@@ -156,12 +172,20 @@ Setiap Pull Request yang diajukan ke repository ini **wajib mematuhi ketentuan b
 Sebelum mengajukan PR, pastikan semua tes lokal berjalan tanpa error:
 
 ```bash
-# Menjalankan PHPUnit Feature & Unit Tests
+# Menjalankan PHPUnit Feature & Unit Tests (214 test)
 php artisan test
 
-# Atau jalankan di dalam container Docker
+# Cek format kode PHP (Laravel Pint)
+vendor/bin/pint --test
+
+# Build aset frontend (memastikan Vite & Tailwind tidak error)
+npm run build
+
+# Atau jalankan test di dalam container Docker
 docker compose exec app php artisan test
 ```
+
+CI menjalankan test di SQLite **dan** MySQL 8.0. Detail lihat [docs/testing.md](docs/testing.md).
 
 ---
 
