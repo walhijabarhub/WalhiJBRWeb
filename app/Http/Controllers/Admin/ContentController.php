@@ -378,9 +378,9 @@ class ContentController extends Controller
 
         if ($category === 'banner') {
             $btn1Text = trim((string) $request->input('banner_btn1_text', ''));
-            $btn1Url  = trim((string) $request->input('banner_btn1_url', ''));
+            $btn1Url = trim((string) $request->input('banner_btn1_url', ''));
             $btn2Text = trim((string) $request->input('banner_btn2_text', ''));
-            $btn2Url  = trim((string) $request->input('banner_btn2_url', ''));
+            $btn2Url = trim((string) $request->input('banner_btn2_url', ''));
 
             if ($btn1Text !== '' || $btn1Url !== '' || $btn2Text !== '' || $btn2Url !== '') {
                 return implode('|', [$btn1Text, $btn1Url, $btn2Text, $btn2Url]);
@@ -405,7 +405,22 @@ class ContentController extends Controller
     }
 
     /**
-     * Delete a locally uploaded file if it exists.
+     * Whether another entry still points at the file, as its attachment or inside its
+     * body (Quill images). Soft-deleted entries count too, so a restore keeps its file.
+     * LIKE wildcards in the path are left unescaped: they can only widen the match,
+     * which keeps a file rather than deleting one that is still in use.
+     */
+    private function isFileUsedElsewhere(Content $content, string $relativePath): bool
+    {
+        return Content::withTrashed()
+            ->whereKeyNot($content->getKey())
+            ->where(fn ($q) => $q->where('image_url', 'like', '%'.$relativePath)
+                ->orWhere('body', 'like', '%'.$relativePath.'%'))
+            ->exists();
+    }
+
+    /**
+     * Delete a locally uploaded file if it exists and no other entry uses it.
      * Sanitizes filename with basename() to strictly prevent path traversal.
      * Checks both private 'local' disk and legacy 'public' disk.
      */
@@ -431,7 +446,8 @@ class ContentController extends Controller
 
             if ($filename !== null && $filename !== '' && $folder !== null) {
                 $cleanFilename = basename($filename);
-                if ($cleanFilename !== '' && ! in_array($cleanFilename, ['.', '..'], true)) {
+                if ($cleanFilename !== '' && ! in_array($cleanFilename, ['.', '..'], true)
+                    && ! $this->isFileUsedElsewhere($content, $folder.$cleanFilename)) {
                     if ($folder === 'documents/') {
                         Storage::disk('local')->delete('documents/'.$cleanFilename);
                         Storage::disk('public')->delete('documents/'.$cleanFilename);

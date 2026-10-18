@@ -19,6 +19,9 @@ jobs:
   test-and-validate:
     name: Test & Security Gatekeeper
     runs-on: ubuntu-24.04
+    # workflow_dispatch can be started from any branch; only production may deploy
+    # (the later jobs depend on this one and are skipped with it).
+    if: github.ref == 'refs/heads/production'
 
     steps:
       - name: Checkout Code

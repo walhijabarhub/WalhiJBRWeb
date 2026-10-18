@@ -64,6 +64,7 @@ class StoreContentRequest extends FormRequest
                         $fail('URL gambar/berkas harus berupa tautan web yang valid (http/https) atau jalur berkas lokal yang terdaftar (/storage/, /uploads/, /documents/, /assets/).');
                     }
                 },
+                $this->privateDocumentPathRule(),
             ],
             'image' => [
                 'nullable',

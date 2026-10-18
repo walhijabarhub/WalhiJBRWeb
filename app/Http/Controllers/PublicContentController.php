@@ -11,7 +11,7 @@ use Artesaos\SEOTools\Facades\OpenGraph;
 use Artesaos\SEOTools\Facades\SEOMeta;
 use Artesaos\SEOTools\Facades\TwitterCard;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 
 class PublicContentController extends Controller
@@ -82,12 +82,10 @@ class PublicContentController extends Controller
             }])
             ->firstOrFail();
 
-        // Ensure non-published (draft/archived) articles are not accessible to public guests
-        if ($item->status !== 'published') {
-            $user = auth()->user();
-            if (! $user || ! $user->canManageContent()) {
-                abort(404);
-            }
+        // Non-published (draft/archived) entries follow ContentPolicy@view (sensitive
+        // categories are admin-only); anyone without access gets 404, never 403.
+        if ($item->status !== 'published' && Gate::denies('view', $item)) {
+            abort(404);
         }
 
         // Increment views count with session deduplication
@@ -101,7 +99,8 @@ class PublicContentController extends Controller
         $title = $item->title.' - WALHI Jawa Barat';
         $description = $item->excerpt ?: Str::limit(strip_tags($item->body ?? ''), 155);
         $canonicalUrl = route('content.show', $item->slug);
-        $imageUrl = $item->image_url
+        // A document (PDF, Office file) is never used as the share image.
+        $imageUrl = $item->image_url && ! $item->isDocument()
             ? (str_starts_with($item->image_url, 'http') ? $item->image_url : asset($item->image_url))
             : asset('assets/images/resources/logo-2-walhi.png');
         $keywords = ! empty($item->tags) ? array_map('trim', explode(',', $item->tags)) : ['WALHI', 'Jawa Barat', 'Keadilan Ekologis', 'Lingkungan Hidup'];
