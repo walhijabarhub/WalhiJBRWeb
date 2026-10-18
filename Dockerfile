@@ -1,6 +1,6 @@
 # ─── Stage 1: Node.js Asset Build ───────────────────────────
 # Base images are pinned to a minor version so rebuilds are reproducible.
-FROM node:20.19-alpine AS frontend
+FROM node:26.12-alpine AS frontend
 WORKDIR /app
 COPY package*.json vite.config.js tailwind.config.js postcss.config.js ./
 RUN npm ci --ignore-scripts
