@@ -1,11 +1,13 @@
 name: Continuous Integration (CI)
 
 on:
+  # Pushes to production run this workflow through deploy.yml (workflow_call), as the
+  # gate before the image is built, so it is not triggered a second time here.
   push:
     branches:
       - main
       - prod
-      - production
+  workflow_call:
   pull_request:
     branches:
       - main

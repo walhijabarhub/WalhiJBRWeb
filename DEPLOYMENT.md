@@ -227,15 +227,24 @@ docker compose -f docker-compose.prod.yml logs -f app
 ## 🚀 Otomasi Deployment (CI/CD) GitHub Actions (Branch: production)
 
 Saat ada push ke `production`, workflow `deploy.yml` menjalankan:
-1. **Gatekeeper:** seluruh test (`php artisan test`) dan `composer audit`. Gagal = tidak ada yang dideploy.
+1. **Gatekeeper:** memanggil `ci.yml` (test SQLite **dan MySQL 8.0**, build frontend, build Docker, validasi compose) dan `security.yml` (gitleaks, `composer audit`, `npm audit`, test) sebagai *reusable workflow*. Image baru dibangun hanya jika **semua** job di kedua workflow lulus. Gagal = tidak ada yang dideploy.
 2. **Build image sekali di CI** dan push ke GHCR sebagai `ghcr.io/walhijabarhub/walhijbrweb:<12-char-commit-sha>`. VPS tidak lagi membangun image.
 3. **Deploy via SSH** (host key diverifikasi lewat `fingerprint`, environment `production`) yang memanggil `./deploy.sh production <sha>` dari commit yang sama.
 
-Workflow `ci.yml` menjalankan test di SQLite **dan MySQL 8.0**, build aset, build image, dan validasi `docker-compose.prod.yml`. Workflow `security.yml` menjalankan gitleaks (seluruh riwayat), `composer audit`, dan `npm audit`. Semua action dikunci ke commit SHA; Dependabot memperbarui dependensi tiap minggu.
+Workflow `ci.yml` menjalankan test di SQLite **dan MySQL 8.0**, build aset, build image, dan validasi `docker-compose.prod.yml`. Workflow `security.yml` menjalankan gitleaks (seluruh riwayat), `composer audit`, dan `npm audit`. Keduanya berjalan di setiap PR; untuk push ke `production` keduanya dijalankan oleh `deploy.yml` sebagai gate (tidak dobel). Semua action dikunci ke commit SHA; Dependabot memperbarui dependensi tiap minggu.
+
+### Perlindungan branch `production` (oleh owner organisasi)
+
+PR tidak bisa mengaktifkan branch protection; pengaturan ini butuh akses **admin**. Settings → Rules → Rulesets → *New branch ruleset*, target `production`:
+
+- *Restrict deletions* dan *Block force pushes*
+- *Require a pull request before merging*
+- *Require status checks to pass*, dengan nama check persis seperti yang diterbitkan GitHub Actions pada PR:
+  `PHP Tests (SQLite)`, `PHP Tests (MySQL 8.0)`, `Frontend Assets Build`, `Docker Build Validation`, `Dependency Security Scan & Security Tests`, `walhijabar_reviewbot`
 
 ```mermaid
 flowchart LR
-    A["git push production"] --> B["Test + audit"]
+    A["git push production"] --> B["CI + Security (SQLite, MySQL 8, frontend, Docker, gitleaks, audit)"]
     B -->|lulus| C["Build & push image GHCR (tag = commit)"]
     B -->|gagal| X["❌ Batal — VPS tidak disentuh"]
     C --> D["SSH (fingerprint) → deploy.sh"]
