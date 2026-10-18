@@ -1,0 +1,94 @@
+name: walhijabar_reviewbot
+
+# Automatic review of every pull request against the project rules
+# (AGENTS.md, .agents/rules/secure_coding.md, docs/domain-rules.md).
+# Findings appear as annotations in "Files changed" and as one comment that is
+# updated on every push. A blocker fails the check, so it can be made a required
+# status check on `production`.
+#
+# `pull_request` (never `pull_request_target`): the PR code is only read, never
+# executed with a write token. The rules are loaded from the base branch, so a PR
+# cannot weaken the bot that reviews it.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, edited]
+
+concurrency:
+  group: reviewbot-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  review:
+    name: walhijabar_reviewbot
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      # Secrets cannot be read in a step's `if`; expose only whether the App is configured.
+      HAS_REVIEWBOT_APP: ${{ secrets.REVIEWBOT_CLIENT_ID != '' }}
+
+    steps:
+      - name: Checkout pull request
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Checkout rules from base branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: .reviewbot-base
+          sparse-checkout: .github/reviewbot
+          persist-credentials: false
+
+      # Optional: a GitHub App named "walhijabar_reviewbot" makes the comment appear
+      # under that name. Without the secrets the comment is posted by github-actions[bot].
+      - name: Use walhijabar_reviewbot GitHub App token
+        id: app-token
+        if: env.HAS_REVIEWBOT_APP == 'true'
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ secrets.REVIEWBOT_CLIENT_ID }}
+          private-key: ${{ secrets.REVIEWBOT_APP_PRIVATE_KEY }}
+
+      - name: Review
+        id: review
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          script=.reviewbot-base/.github/reviewbot/walhijabar_reviewbot.py
+          # The PR that introduces the bot has no base copy yet.
+          [ -f "$script" ] || script=.github/reviewbot/walhijabar_reviewbot.py
+          set +e
+          python3 -I "$script" --base "$BASE_SHA" --head "$HEAD_SHA" --base-ref "$BASE_REF" --report "$RUNNER_TEMP/review.md"
+          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+          cat "$RUNNER_TEMP/review.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Post or update review comment
+        # Fork PRs get a read-only token; the annotations and job summary still work.
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          marker='<!-- walhijabar_reviewbot -->'
+          comment_id=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" --paginate \
+            --jq "[.[] | select(.body | startswith(\"$marker\"))][0].id // empty" | head -n 1)
+          if [ -n "$comment_id" ]; then
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$comment_id" -F body=@"$RUNNER_TEMP/review.md" >/dev/null
+          else
+            gh api -X POST "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" -F body=@"$RUNNER_TEMP/review.md" >/dev/null
+          fi
+
+      - name: Fail on blockers
+        if: steps.review.outputs.exit_code != '0'
+        run: |
+          echo "walhijabar_reviewbot menemukan blocker. Lihat komentar PR atau ringkasan job."
+          exit 1

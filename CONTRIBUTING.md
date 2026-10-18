@@ -118,6 +118,7 @@ Setiap Pull Request yang diajukan ke repository ini **wajib mematuhi ketentuan b
 ### 5. Aturan Review & Approval (Persetujuan)
 - **Minimal 1 Approval**: Setiap PR wajib mendapatkan persetujuan (*approval*) dari minimal 1 maintainer / lead developer atau rekan tim sebelum di-merge.
 - **Dilarang Self-Merge**: Kontributor dilarang melakukan merge pada PR miliknya sendiri tanpa persetujuan dari tim peninjau (kecuali hotfix kritis yang telah dikoordinasikan).
+- **Review Otomatis `walhijabar_reviewbot`**: Setiap PR diperiksa otomatis terhadap aturan keamanan & arsitektur proyek. Temuan *blocker* harus diperbaiki sebelum merge (lihat [docs/reviewbot.md](docs/reviewbot.md)).
 - **Responsif terhadap Masukan**: Pembuat PR diharapkan menanggapi dan merevisi catatan/komentar dari reviewer secara berkala.
 
 ### 6. Strategi Penggabungan (Merge Strategy)
