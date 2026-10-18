@@ -6,7 +6,7 @@
         @include('partials.seo-meta', [
             'title' => $item->title . ' - WALHI Jawa Barat',
             'description' => Str::limit(strip_tags($item->body), 155),
-            'image' => $item->image_url,
+            'image' => $item->isDocument() ? null : $item->image_url,
             'type' => 'article'
         ])
  

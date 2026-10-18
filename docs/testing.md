@@ -7,7 +7,7 @@ Dokumen ini memandu pengembang dan AI coding agents dalam menjalankan, memelihar
 ## 1. Ikhtisar Test Suite
 
 - **Framework:** PHPUnit 12 (`php artisan test`)
-- **Total:** **214 test, 965 assertion**, semuanya lulus (per Oktober 2026)
+- **Total:** **227 test, 1009 assertion**, semuanya lulus (per Oktober 2026)
 - **Cakupan:** autentikasi & 2FA, RBAC, manajemen konten, keamanan konten & CSP, dokumen privat, donasi & Midtrans, audit log, cache & pencarian, newsletter, retensi data, CAPTCHA, proxy tepercaya, SEO.
 
 Perbarui angka di atas (dan di `AGENTS.md`) bila jumlah test berubah signifikan.
@@ -65,6 +65,7 @@ docker rm -f walhi-test-mysql
 | `tests/Feature/BannerHeroTest.php` | Banner beranda (fallback, published vs draft, simpan/ubah). | 4 |
 | `tests/Feature/AdminUserCommandTest.php` | `walhi:create-admin`, prompt tersembunyi, password lemah ditolak (SEC-003/004). | 3 |
 | `tests/Feature/TrustedProxyTest.php` | Header `X-Forwarded-*` dari klien diabaikan tanpa proxy tepercaya. | 2 |
+| `tests/Feature/StorageIntegrityAuditTest.php` | Audit Oktober 2026: berkas bersama tidak ikut terhapus, `image_url` tidak bisa menunjuk dokumen privat lain, nginx memblokir `/storage/documents/`, migrasi dokumen legacy aman (dry-run, checksum), pratinjau draf kategori sensitif. | 13 |
 | `tests/Feature/Auth/*` (lainnya) | Login `/portal-jabar`, reset & konfirmasi password, update password, verifikasi email, registrasi nonaktif. | 21 |
 | `tests/Feature/ExampleTest.php`, `tests/Unit/ExampleTest.php` | Smoke test. | 2 |
 

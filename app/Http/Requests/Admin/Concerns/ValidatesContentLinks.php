@@ -2,14 +2,46 @@
 
 namespace App\Http\Requests\Admin\Concerns;
 
+use App\Models\Content;
 use App\Rules\SafeUrl;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * Validation for category-specific fields that end up rendered as links or asset paths
- * on public pages (banner buttons, emergency campaign link, critical-issue icon).
+ * on public pages (banner buttons, emergency campaign link, critical-issue icon), and
+ * for manually typed attachment paths.
  */
 trait ValidatesContentLinks
 {
+    /**
+     * A typed image_url may not point at a private document (SEC-008). The download
+     * endpoint resolves any local, non-"uploads/" path to documents/<basename>, so a
+     * typed path could otherwise publish another entry's draft or admin-only document
+     * through this entry's download link. Only the entry's own current path may be
+     * sent back unchanged (the edit form re-submits it).
+     */
+    protected function privateDocumentPathRule(): \Closure
+    {
+        return function (string $attribute, mixed $value, \Closure $fail) {
+            $val = is_string($value) ? trim($value) : '';
+            if ($val === '' || preg_match('#^https?://#i', $val) || str_contains($val, 'uploads/')) {
+                return;
+            }
+
+            $content = $this->route('content');
+            if ($content instanceof Content && in_array($val, [(string) $content->getRawOriginal('image_url'), $content->image_url], true)) {
+                return;
+            }
+
+            $document = 'documents/'.basename($val);
+            if (preg_match('#^/?(storage/)?documents/#i', $val)
+                || Storage::disk('local')->exists($document)
+                || Storage::disk('public')->exists($document)) {
+                $fail('Dokumen privat tidak dapat ditautkan lewat URL. Unggah berkasnya langsung pada entri ini.');
+            }
+        };
+    }
+
     protected function contentLinkRules(): array
     {
         $rules = [

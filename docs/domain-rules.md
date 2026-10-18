@@ -108,7 +108,12 @@ Berkas Unggahan Masuk
 4. **Pencegahan Header Injection:**
    - Nama file unduhan dibersihkan dari karakter CRLF (`\r`, `\n`) dan tanda kutip. Ekstensi file ditentukan dari berkas fisik di server (`pathinfo`).
 5. **Alat Migrasi Dokumen Legacy:**
-   - Gunakan `php artisan walhi:migrate-documents {--delete-legacy}` untuk memindahkan file dokumen publik lama ke disk privat dan menormalkan path database.
+   - Jalankan dulu `php artisan walhi:migrate-documents --dry-run` (tidak mengubah apa pun), lalu `php artisan walhi:migrate-documents` untuk menyalin file dokumen publik lama ke disk privat dan menormalkan path database. Tambahkan `--delete-legacy` untuk menghapus salinan publik.
+   - File privat yang sudah ada tidak pernah ditimpa; salinan publik hanya dihapus setelah checksum SHA-256 kedua salinan cocok. Konflik dibiarkan utuh dan perintah keluar dengan status gagal.
+   - Selama masih ada file lama di disk publik, nginx menolak `/storage/documents/*` (404) sehingga dokumen tetap hanya bisa diunduh lewat endpoint berotorisasi.
+6. **Referensi Berkas:**
+   - `image_url` yang diketik manual tidak boleh menunjuk dokumen privat entri lain (validasi `privateDocumentPathRule`); dokumen harus diunggah langsung pada entrinya.
+   - Berkas lama hanya dihapus saat diganti/dihapus bila tidak ada entri lain (termasuk yang di-soft-delete) yang masih memakainya di `image_url` atau `body`.
 
 ---
 
