@@ -66,7 +66,7 @@
                         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 w-full">
                             @forelse($items as $item)
                                 @php
-                                    $coverImage = $item->image_url;
+                                    $coverImage = $item->isDocument() ? null : $item->image_url;
                                     if (!$coverImage) {
                                         $slug = Str::slug($item->title);
                                         if (Str::contains($slug, 'tambang')) {

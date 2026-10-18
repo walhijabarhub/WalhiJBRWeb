@@ -345,7 +345,7 @@
                                                 Baca Lengkap
                                             </a>
                                             
-                                            @if($item->image_url)
+                                            @if($item->has_download)
                                                 <a href="{{ $item->download_url ?: $item->image_url }}" target="_blank"
                                                    style="height: 48px; padding: 0 24px; background: white; color: #1D1D1D; border: 2px solid #1D1D1D; font-family: Aspekta, sans-serif; font-weight: 700; font-size: 12px; letter-spacing: 0.35px; text-transform: uppercase; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; box-sizing: border-box; transition: background 0.2s;"
                                                    class="hover-action-light-btn">
@@ -356,7 +356,7 @@
                                                 <button disabled
                                                         style="height: 48px; padding: 0 24px; background: white; color: #aaa; border: 2px solid #ddd; font-family: Aspekta, sans-serif; font-weight: 700; font-size: 12px; letter-spacing: 0.35px; text-transform: uppercase; cursor: not-allowed; display: inline-flex; align-items: center; justify-content: center; gap: 8px; box-sizing: border-box; opacity: 0.6;">
                                                     <i data-lucide="download" style="width: 14px; height: 14px; color: #aaa;"></i>
-                                                    Download PDF
+                                                    Dokumen belum tersedia
                                                 </button>
                                             @endif
                                         </div>

@@ -111,7 +111,10 @@ Berkas Unggahan Masuk
    - Jalankan dulu `php artisan walhi:migrate-documents --dry-run` (tidak mengubah apa pun), lalu `php artisan walhi:migrate-documents` untuk menyalin file dokumen publik lama ke disk privat dan menormalkan path database. Tambahkan `--delete-legacy` untuk menghapus salinan publik.
    - File privat yang sudah ada tidak pernah ditimpa; salinan publik hanya dihapus setelah checksum SHA-256 kedua salinan cocok. Konflik dibiarkan utuh dan perintah keluar dengan status gagal.
    - Selama masih ada file lama di disk publik, nginx menolak `/storage/documents/*` (404) sehingga dokumen tetap hanya bisa diunduh lewat endpoint berotorisasi.
-6. **Referensi Berkas:**
+6. **Dokumen yang Berkasnya Belum Ada:**
+   - `Content::$has_download` bernilai benar hanya untuk tautan eksternal, gambar, atau dokumen lokal yang berkasnya benar-benar ada (lookup sama dengan `DocumentDownloadController` lewat `documentFileLocation()`).
+   - Bila berkas tidak ada, view menampilkan tombol nonaktif **"Dokumen belum tersedia"**; tidak ada berkas pengganti yang dibuat. Tombol aktif kembali begitu berkas diunggah lewat panel admin.
+7. **Referensi Berkas:**
    - `image_url` yang diketik manual tidak boleh menunjuk dokumen privat entri lain (validasi `privateDocumentPathRule`); dokumen harus diunggah langsung pada entrinya.
    - Berkas lama hanya dihapus saat diganti/dihapus bila tidak ada entri lain (termasuk yang di-soft-delete) yang masih memakainya di `image_url` atau `body`.
 

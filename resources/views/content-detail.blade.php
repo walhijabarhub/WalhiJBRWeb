@@ -204,7 +204,7 @@
                                 </div>
  
                                 <div style="border-top: 2px solid #1D1D1D; padding-top: 24px;">
-                                    @if($item->image_url)
+                                    @if($item->has_download)
                                         <a href="{{ $item->download_url ?: $item->image_url }}" target="_blank" rel="noopener noreferrer" style="height: 52px; padding: 0 32px; background: #1D1D1D; color: #F4F1EA; border: none; font-weight: 700; font-size: 14px; text-transform: uppercase; display: inline-flex; align-items: center; gap: 8px; text-decoration: none;" class="btn-action">
                                             <i data-lucide="download" style="width: 18px; height: 18px;"></i>
                                             Unduh Dokumen PDF
@@ -212,7 +212,7 @@
                                     @else
                                         <button disabled style="height: 52px; padding: 0 32px; background: #ddd; color: #aaa; border: none; font-weight: 700; font-size: 14px; text-transform: uppercase; cursor: not-allowed; display: inline-flex; align-items: center; gap: 8px;">
                                             <i data-lucide="download" style="width: 18px; height: 18px; color: #aaa;"></i>
-                                            Dokumen PDF Belum Tersedia
+                                            Dokumen belum tersedia
                                         </button>
                                     @endif
                                 </div>
@@ -323,7 +323,7 @@
                                 </div>
 
                                 <div style="border-top: 2px solid #1D1D1D; padding-top: 24px; display: flex; gap: 12px;">
-                                    @if($item->image_url)
+                                    @if($item->has_download)
                                         <a href="{{ $item->download_url ?: $item->image_url }}" target="_blank" rel="noopener noreferrer" style="height: 52px; padding: 0 32px; background: #1D1D1D; color: #F4F1EA; border: none; font-weight: 700; font-size: 14px; text-transform: uppercase; display: inline-flex; align-items: center; gap: 8px; text-decoration: none;" class="btn-action">
                                             <i data-lucide="download" style="width: 18px; height: 18px;"></i>
                                             {{ $btnText }}
@@ -331,7 +331,7 @@
                                     @else
                                         <button disabled style="height: 52px; padding: 0 32px; background: #ddd; color: #aaa; border: none; font-weight: 700; font-size: 14px; text-transform: uppercase; cursor: not-allowed; display: inline-flex; align-items: center; gap: 8px;">
                                             <i data-lucide="download" style="width: 18px; height: 18px; color: #aaa;"></i>
-                                            Berkas Laporan Belum Tersedia
+                                            Dokumen belum tersedia
                                         </button>
                                     @endif
                                 </div>
@@ -377,8 +377,8 @@
                                             </div>
                                         </div>
 
-                                        <!-- Cover Image -->
-                                        @if($item->image_url)
+                                        <!-- Cover Image (a PDF/Office attachment is not an image) -->
+                                        @if($item->image_url && ! $item->isDocument())
                                             <div style="width: 100%; border: 4px solid #1D1D1D; background: #1D1D1D; overflow: hidden; max-height: 480px;">
                                                 <img style="width: 100%; height: auto; object-fit: cover; display: block;" src="{{ $item->image_url }}" alt="{{ $item->title }}" />
                                             </div>
@@ -411,7 +411,7 @@
                                                 </p>
 
                                                 <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center; padding-top: 6px;">
-                                                    @if($item->download_url)
+                                                    @if($item->has_download)
                                                         <a href="{{ $item->download_url }}" target="_blank" rel="noopener noreferrer" style="height: 46px; padding: 0 24px; background: #1D1D1D; color: #F4F1EA; border: none; font-weight: 700; font-size: 13px; text-transform: uppercase; display: inline-flex; align-items: center; gap: 8px; text-decoration: none;" class="btn-action">
                                                             <i data-lucide="download" style="width: 16px; height: 16px;"></i>
                                                             Unduh Dokumen Lengkap ({{ $ext ?: 'PDF' }})
@@ -419,7 +419,7 @@
                                                     @else
                                                         <button disabled style="height: 46px; padding: 0 24px; background: #ddd; color: #888; border: none; font-weight: 700; font-size: 13px; text-transform: uppercase; cursor: not-allowed; display: inline-flex; align-items: center; gap: 8px;">
                                                             <i data-lucide="file-text" style="width: 16px; height: 16px;"></i>
-                                                            Berkas Digital Dalam Proses Digitalisasi
+                                                            Dokumen belum tersedia
                                                         </button>
                                                     @endif
                                                 </div>
