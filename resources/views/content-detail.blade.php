@@ -380,7 +380,7 @@
                                         <!-- Cover Image (a PDF/Office attachment is not an image) -->
                                         @if($item->image_url && ! $item->isDocument())
                                             <div style="width: 100%; border: 4px solid #1D1D1D; background: #1D1D1D; overflow: hidden; max-height: 480px;">
-                                                <img style="width: 100%; height: auto; object-fit: cover; display: block;" src="{{ $item->image_url }}" alt="{{ $item->title }}" />
+                                                <img style="width: 100%; height: auto; object-fit: cover; display: block;" src="{{ $item->image_url }}" alt="{{ $item->title }}" fetchpriority="high" />
                                             </div>
                                         @endif
 
@@ -605,7 +605,7 @@
                                             @forelse($sidebarNews as $sideItem)
                                                 <div style="display: flex; gap: 12px; align-items: center; border-bottom: 2px solid #f0ede8; padding-bottom: 16px; last-border: none;" class="last:border-0 last:pb-0">
                                                     <a href="{{ route('content.show', $sideItem->slug) }}" style="width: 72px; height: 72px; flex-shrink: 0; border: 2px solid #1D1D1D; overflow: hidden; background: #ddd; display: block;">
-                                                        <img src="{{ $sideItem->image_url ?: asset('assets/images/blog/news-4-1.jpg') }}" alt="{{ $sideItem->title }}" style="width: 100%; height: 100%; object-fit: cover;" />
+                                                        <img src="{{ $sideItem->image_url ?: asset('assets/images/blog/news-4-1.jpg') }}" alt="{{ $sideItem->title }}" style="width: 100%; height: 100%; object-fit: cover;" loading="lazy" decoding="async" />
                                                     </a>
                                                     <div style="display: flex; flex-direction: column; gap: 4px; min-w: 0; flex: 1;">
                                                         <a href="{{ route('content.show', $sideItem->slug) }}" style="font-family: Aspekta, sans-serif; font-size: 14px; font-weight: 700; color: #1D1D1D; text-decoration: none; line-height: 1.3;" class="hover:text-[#256D4A] line-clamp-2">
@@ -640,7 +640,7 @@
                                         @endphp
                                         <div style="background: white; border: 4px solid #1D1D1D; display: flex; flex-direction: column; gap: 16px;" class="shadow-[4px_4px_0px_0px_#256D4A] hover:translate-x-1 hover:translate-y-1 transition-all">
                                             <div style="width: 100%; height: 180px; overflow: hidden; border-bottom: 4px solid #1D1D1D; position: relative; background: #eee;">
-                                                <img src="{{ $relImage }}" alt="{{ $rel->title }}" style="width: 100%; height: 100%; object-fit: cover;" />
+                                                <img src="{{ $relImage }}" alt="{{ $rel->title }}" style="width: 100%; height: 100%; object-fit: cover;" loading="lazy" decoding="async" />
                                                 <span style="position: absolute; left: 12px; top: 12px; background: #D95C3F; color: white; padding: 4px 8px; font-size: 10px; font-weight: 700; text-transform: uppercase; font-family: Montserrat, sans-serif;">{{ $relTag }}</span>
                                             </div>
                                             <div style="display: flex; flex-direction: column; justify-content: space-between; flex-grow: 1; gap: 16px;" class="p-4 md:p-5">

@@ -84,7 +84,7 @@
                                 <article style="background: white; border: 4px solid #1D1D1D; outline: 4px #1D1D1D solid; outline-offset: -4px; overflow: hidden; display: flex; flex-direction: column; height: 100%;" class="infographic-card">
                                     <!-- Image cover container -->
                                     <div style="width: 100%; height: 240px; overflow: hidden; border-bottom: 4px solid #1D1D1D; background: #1D1D1D; position: relative;">
-                                        <img style="width: 100%; height: 100%; object-fit: cover;" src="{{ $coverImage }}" alt="{{ $item->title }}" />
+                                        <img style="width: 100%; height: 100%; object-fit: cover;" src="{{ $coverImage }}" alt="{{ $item->title }}" loading="{{ $loop->index < 3 ? 'eager' : 'lazy' }}" decoding="async" />
                                     </div>
                                     
                                     <!-- Card details -->
