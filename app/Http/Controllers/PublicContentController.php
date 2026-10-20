@@ -10,6 +10,7 @@ use Artesaos\SEOTools\Facades\JsonLdMulti;
 use Artesaos\SEOTools\Facades\OpenGraph;
 use Artesaos\SEOTools\Facades\SEOMeta;
 use Artesaos\SEOTools\Facades\TwitterCard;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
@@ -164,34 +165,52 @@ class PublicContentController extends Controller
             ->orderBy('created_at', 'desc')
             ->get();
 
-        // Related content (same category, exclude current)
-        $relatedNews = Content::ofCategory($item->category)
-            ->published()
-            ->where('id', '!=', $item->id)
-            ->inRandomOrder()
-            ->take(3)
-            ->get();
+        $relatedNews = $this->relatedContent($item);
 
-        // Top-up with blog/siaran-pers if not enough related content
-        if ($relatedNews->count() < 3) {
-            $extraNews = Content::ofCategory(ContentCategory::newsValues())
-                ->published()
-                ->where('id', '!=', $item->id)
-                ->whereNotIn('id', $relatedNews->pluck('id'))
-                ->inRandomOrder()
-                ->take(3 - $relatedNews->count())
-                ->get();
-            $relatedNews = $relatedNews->merge($extraNews);
-        }
-
-        // Sidebar: latest 5 published news
-        $sidebarNews = Content::ofCategory(ContentCategory::newsValues())
+        // Sidebar: latest 5 published news. Six are cached so that excluding the
+        // current article still leaves five.
+        $sidebarNews = ContentCache::remember(ContentCache::SIDEBAR_NEWS, now()->addMinutes(10), fn () => Content::ofCategory(ContentCategory::newsValues())
             ->published()
-            ->where('id', '!=', $item->id)
+            ->select(['id', 'title', 'slug', 'image_url', 'category', 'publish_date', 'created_at'])
             ->orderBy('publish_date', 'desc')
+            ->take(6)
+            ->get())
+            ->reject(fn (Content $news) => $news->id === $item->id)
             ->take(5)
-            ->get();
+            ->values();
 
         return view('content-detail', compact('item', 'readTime', 'relatedNews', 'sidebarNews', 'approvedComments'));
+    }
+
+    /**
+     * Three random published items from the same category, topped up with news.
+     * Candidates come from cached id lists, so only a primary-key lookup hits the
+     * database instead of ORDER BY RAND() over the whole category.
+     */
+    private function relatedContent(Content $item, int $limit = 3): Collection
+    {
+        $category = $item->category instanceof \BackedEnum ? $item->category->value : (string) $item->category;
+
+        $pick = fn (array $ids, array $exclude, int $count) => collect($ids)->diff($exclude)->shuffle()->take($count)->values()->all();
+        $idsOf = fn (string $pool, array|string $categories) => ContentCache::publishedIds($pool, fn () => Content::ofCategory($categories)
+            ->published()
+            ->orderBy('publish_date', 'desc')
+            ->limit(200)
+            ->pluck('id')
+            ->all());
+
+        $ids = $pick($idsOf($category, $category), [$item->id], $limit);
+
+        if (count($ids) < $limit) {
+            $ids = [...$ids, ...$pick($idsOf(ContentCache::NEWS_POOL, ContentCategory::newsValues()), [$item->id, ...$ids], $limit - count($ids))];
+        }
+
+        if ($ids === []) {
+            return new Collection;
+        }
+
+        $found = Content::published()->whereIn('id', $ids)->get()->keyBy('id');
+
+        return new Collection(array_values(array_filter(array_map(fn (int $id) => $found->get($id), $ids))));
     }
 }
