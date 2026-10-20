@@ -20,5 +20,5 @@ Disallow: /profile
 Disallow: /donasi/webhook
 Disallow: /donasi/mock-payment-status
 
-Sitemap: https://walhijabar.or.id/sitemap.xml
+Sitemap: https://www.walhijabar.or.id/sitemap.xml
 

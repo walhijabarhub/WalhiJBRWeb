@@ -193,7 +193,9 @@ wait_healthy() {
 http_check() {
     local port host
     if [ "$(env_value NGINX_CONF)" = "https" ]; then
-        port="$(env_value HTTPS_PORT)"; port="${port:-443}"; host="$(env_value NGINX_SERVER_NAME)"
+        # The bare domain only redirects (301) to www, which curl -f would count as
+        # healthy without reaching the app, so check the canonical www host.
+        port="$(env_value HTTPS_PORT)"; port="${port:-443}"; host="www.$(env_value NGINX_SERVER_NAME)"
         curl -fsS -o /dev/null --max-time 10 --resolve "$host:$port:127.0.0.1" "https://$host:$port/up"
     else
         port="$(env_value HTTP_PORT)"; port="${port:-80}"

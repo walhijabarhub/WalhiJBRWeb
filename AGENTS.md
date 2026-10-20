@@ -16,7 +16,7 @@ This document is the **primary entrypoint and operating manual** for modern AI c
 | :--- | :--- | :--- | :--- |
 | **Runtime** | PHP | `^8.3` (Production image: `8.4-fpm-alpine`) | Typed parameters, return types, enums. |
 | **Framework** | Laravel | `^13.8` (Locked: `13.35.0`) | Modern callable `bootstrap/app.php`. |
-| **Testing** | PHPUnit | `^12.5.12` | 234 automated tests (1051 assertions). |
+| **Testing** | PHPUnit | `^12.5.12` | 240 automated tests (1080 assertions). |
 | **Frontend Build** | Vite | `^8.0.0` (Installed: `8.1.3`) | `laravel-vite-plugin ^3.1`. |
 | **Styling** | Tailwind CSS | `3.4.19` | PostCSS pipeline, Neo-Brutalist design tokens. |
 | **Reactivity** | Alpine.js **CSP build** | `@alpinejs/csp ^3.15.12` | No `eval`; inline handlers replaced by `resources/js/csp-actions.js`. |
@@ -72,7 +72,7 @@ WalhiJBRWeb/
 │   └── console.php                # Schedule (reconcile 15 min, flush-views 5 min, prune monthly)
 ├── storage/app/private/documents/ # SEC-008 private documents
 ├── storage/app/public/uploads/    # Public media
-├── tests/Feature/                 # 234 tests; tests/TestCase.php disables Vite
+├── tests/Feature/                 # 240 tests; tests/TestCase.php disables Vite
 ├── deploy.sh                      # Production deploy with migrate-before-swap, health check, rollback
 ├── docker-backup.sh / docker-restore.sh
 └── docker-compose.prod.yml        # app, worker, scheduler, db, redis, web
@@ -176,7 +176,7 @@ An AI agent must preserve the following business rules:
 4. **Two-Factor Authentication:** TOTP is mandatory for `admin`/`editor` when `AUTH_2FA_ENFORCED=true` (default). The `two-factor` middleware redirects unenrolled accounts to `/two-factor`. Reset with `php artisan walhi:reset-2fa <email>`.
 
 ### E. Newsletter, Comments & Privacy
-1. Newsletter uses double opt-in (signed link valid 7 days); only confirmed subscribers are exported.
+1. Newsletter uses double opt-in (signed link valid 7 days); only confirmed subscribers are exported. The link is signed over the path only and checked by `ValidateSignatureAnyHost`, because it is built in the queue worker from `APP_URL` and the bare domain redirects to `www`.
 2. Comments and newsletter: honeypot + rate limit + optional Cloudflare Turnstile (`Turnstile::rules()` in the FormRequest, `<x-turnstile />` in the form).
 3. `walhi:prune-personal-data` (monthly) anonymises donors/commenters older than `PRIVACY_RETENTION_MONTHS` and deletes unconfirmed subscribers.
 
@@ -215,7 +215,7 @@ Whenever making changes, an AI agent MUST uphold:
 
 ## 6. Testing Guide & Verification Protocol
 
-The application contains **234 automated tests (1051 assertions)**, all passing. CI runs them on SQLite and MySQL 8.0.
+The application contains **240 automated tests (1080 assertions)**, all passing. CI runs them on SQLite and MySQL 8.0.
 
 ### Running Tests:
 ```bash
@@ -294,7 +294,7 @@ An AI coding agent must NOT declare a task completed until all criteria are met:
 - [ ] **Authorization Checked:** Action is explicitly guarded by Policies or RBAC middleware.
 - [ ] **Security Intact:** No SQLi, XSS, CSRF bypass, open redirect, or path traversal vectors introduced.
 - [ ] **Storage Discipline:** Documents go to private storage; public media goes to public storage.
-- [ ] **Automated Tests:** Relevant feature tests added or updated, and all 234+ tests pass (`php artisan test`).
+- [ ] **Automated Tests:** Relevant feature tests added or updated, and all 240+ tests pass (`php artisan test`).
 - [ ] **Zero Secrets:** No API keys, passwords, or tokens hardcoded in source code or committed files.
 - [ ] **Documentation Synchronized:** If business rules, endpoints, or configurations change, documentation is updated immediately.
 - [ ] **Clean Diff:** `git diff` reviewed and verified free of unintentional edits.

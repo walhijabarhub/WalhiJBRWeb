@@ -7,7 +7,7 @@ Dokumen ini memandu pengembang dan AI coding agents dalam menjalankan, memelihar
 ## 1. Ikhtisar Test Suite
 
 - **Framework:** PHPUnit 12 (`php artisan test`)
-- **Total:** **234 test, 1051 assertion**, semuanya lulus (per Oktober 2026)
+- **Total:** **240 test, 1080 assertion**, semuanya lulus (per Oktober 2026)
 - **Cakupan:** autentikasi & 2FA, RBAC, manajemen konten, keamanan konten & CSP, dokumen privat, donasi & Midtrans, audit log, cache & pencarian, newsletter, retensi data, CAPTCHA, proxy tepercaya, SEO.
 
 Perbarui angka di atas (dan di `AGENTS.md`) bila jumlah test berubah signifikan.
@@ -58,7 +58,8 @@ docker rm -f walhi-test-mysql
 | `tests/Feature/DonationGatewayHardeningTest.php` | `fraud_status`, konfirmasi Status API, retry Snap, rekonsiliasi & kedaluwarsa, allowlist IP. | 13 |
 | `tests/Feature/DocumentStorageTest.php` | Dokumen privat (SEC-008), otorisasi unduhan, anti open-redirect, injeksi header, file legacy, command migrasi. | 12 |
 | `tests/Feature/RbacMatrixTest.php` | Matriks izin Admin/Editor/Subscriber, kategori sensitif, aksi hapus, kategori arbitrer → 404 (SEC-007/010). | 11 |
-| `tests/Feature/SEOAndResponsiveTest.php` | Halaman statis, meta OpenGraph/Twitter, `sitemap.xml`, `robots.txt`. | 11 |
+| `tests/Feature/SEOAndResponsiveTest.php` | Halaman statis, meta OpenGraph/Twitter, `sitemap.xml`, `robots.txt` (sitemap ke host www), template nginx HTTPS (domain tanpa www → 301 ke www). | 13 |
+| `tests/Feature/CanonicalHostSignedLinkTest.php` | Link konfirmasi newsletter (dibuat worker dari `APP_URL`) tetap valid setelah redirect domain tanpa www → www; link lama tetap diterima; link tanpa tanda tangan, diubah, atau kedaluwarsa ditolak. | 4 |
 | `tests/Feature/TurnstileCaptchaTest.php` | Form tetap jalan tanpa key, token wajib & diverifikasi server, fail-closed, widget & CSP. | 7 |
 | `tests/Feature/DonationTest.php` | State machine donasi, idempotensi, amount mismatch, locking (SEC-009/013). | 5 |
 | `tests/Feature/ProfileTest.php` | Profil, verifikasi email, hapus akun. | 5 |
