@@ -20,7 +20,7 @@ This document is the **primary entrypoint and operating manual** for modern AI c
 | **Frontend Build** | Vite | `^8.0.0` (Installed: `8.1.3`) | `laravel-vite-plugin ^3.1`. |
 | **Styling** | Tailwind CSS | `3.4.19` | PostCSS pipeline, Neo-Brutalist design tokens. |
 | **Reactivity** | Alpine.js **CSP build** | `@alpinejs/csp ^3.15.12` | No `eval`; inline handlers replaced by `resources/js/csp-actions.js`. |
-| **Icons** | Lucide Icons | CDN / Inline SVG | Data attributes: `data-lucide="..."`. |
+| **Icons** | Lucide Icons | `lucide 0.460.0` (npm, bundled) / Inline SVG | Data attributes: `data-lucide="..."`; only icons imported in `resources/js/icons.js` render. |
 | **Database** | SQLite / MySQL | SQLite (local/tests), MySQL 8.0 (prod, also tested in CI) | SoftDeletes on Content, Comment, Donation, Subscriber. |
 | **Cache / Queue / Session** | Redis 7 | Production only | Local uses `database`/`file` drivers. |
 | **2FA** | pragmarx/google2fa + bacon-qr-code | `^8.0` / `^3.0` | TOTP, mandatory for admin/editor. |

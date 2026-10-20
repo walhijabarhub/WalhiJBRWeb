@@ -50,7 +50,7 @@ class SecurityHeaders
         // Third-party scripts are pinned to exact paths (and loaded with SRI) rather than whole CDNs.
         $cspDirectives = [
             "default-src 'self'",
-            "script-src 'self' 'nonce-{$nonce}' https://app.midtrans.com/snap/ https://app.sandbox.midtrans.com/snap/ https://cdn.jsdelivr.net/npm/quill@2.0.2/ https://cdn.jsdelivr.net/npm/chart.js@4.4.7/ https://unpkg.com/lucide@0.460.0/",
+            "script-src 'self' 'nonce-{$nonce}' https://app.midtrans.com/snap/ https://app.sandbox.midtrans.com/snap/ https://cdn.jsdelivr.net/npm/quill@2.0.2/ https://cdn.jsdelivr.net/npm/chart.js@4.4.7/",
             "script-src-attr 'none'",
             "style-src 'self' 'unsafe-inline' https://fonts.bunny.net https://fonts.googleapis.com https://cdn.jsdelivr.net/npm/quill@2.0.2/",
             "font-src 'self' https://fonts.bunny.net https://fonts.gstatic.com data:",

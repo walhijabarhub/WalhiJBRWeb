@@ -1,6 +1,6 @@
 {{--
     Shared <head> assets for public pages: fonts, the Vite bundle and, when the page
-    uses data-lucide icons, the Lucide script.
+    uses data-lucide icons, the bundled Lucide icons (resources/js/icons.js).
     Usage: @include('partials.head-assets') or @include('partials.head-assets', ['lucide' => true])
 --}}
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -10,6 +10,5 @@
 
 @vite(['resources/css/app.css', 'resources/js/app.js'])
 @if ($lucide ?? false)
-
-<script nonce="{{ Vite::cspNonce() }}" src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js" integrity="sha384-ieG+IKD0d/ZPXyCBTMVAbqsQdns8QGJR/e26WMw7M4fkaI/rHcS/YIoi+ah9WGge" crossorigin="anonymous"></script>
+@vite('resources/js/icons.js')
 @endif
