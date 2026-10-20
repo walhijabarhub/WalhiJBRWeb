@@ -110,10 +110,9 @@ The CSP sets `script-src-attr 'none'`, so `onclick=`, `onsubmit=`, `onchange=`, 
 Only named global functions are called; no strings are evaluated. Functions used this way must be defined on `window` in a nonced script or in a Vite entry.
 
 ### Icons
-- Lucide icons are used across the administrative dashboard, loaded from a version-pinned CDN path with SRI and the CSP nonce:
-  ```html
-  <script nonce="{{ Vite::cspNonce() }}" src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js" integrity="sha384-..." crossorigin="anonymous"></script>
-  ```
+- Lucide icons (`<i data-lucide="name">`) come from the `lucide` npm package (pinned `0.460.0`), bundled by Vite in [resources/js/icons.js](../resources/js/icons.js) with **only the icons in use**. No CDN script is loaded.
+- A new icon must be added to the import list in `icons.js` (PascalCase of the `data-lucide` name, e.g. `bar-chart-3` → `BarChart3`); `tests/Feature/LucideIconsTest.php` fails when one is missing.
+- Public pages load it with `@include('partials.head-assets', ['lucide' => true])`; the admin layout includes `resources/js/icons.js` in its `@vite`. Inline scripts that change `data-lucide` can call `lucide.createIcons()` (a small wrapper set on `window`).
 - Public pages prefer inline SVG.
 
 ### CAPTCHA component
@@ -128,7 +127,7 @@ Only named global functions are called; no strings are evaluated. Functions used
 ```text
 script-src 'self' 'nonce-…' https://app(.sandbox).midtrans.com/snap/
            https://cdn.jsdelivr.net/npm/quill@2.0.2/ https://cdn.jsdelivr.net/npm/chart.js@4.4.7/
-           https://unpkg.com/lucide@0.460.0/   [+ https://challenges.cloudflare.com when Turnstile is on]
+           [+ https://challenges.cloudflare.com when Turnstile is on]
 script-src-attr 'none'
 style-src 'self' 'unsafe-inline' fonts + quill css
 img-src 'self' data: blob: https:
