@@ -9,12 +9,12 @@ use App\Http\Requests\Admin\UpdateContentRequest;
 use App\Models\Content;
 use App\Models\Donation;
 use App\Services\AuditLogService;
+use App\Services\Content\ContentAttachment;
 use App\Services\Content\HtmlSanitizer;
 use App\Services\Content\ImageOptimizer;
 use App\Services\Content\SlugService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class ContentController extends Controller
@@ -203,7 +203,7 @@ class ContentController extends Controller
 
         // Image / document upload / removal / retention
         if ($request->hasFile('image')) {
-            $this->deleteOldImage($content);
+            ContentAttachment::delete($content);
             $file = $request->file('image');
             $ext = strtolower($file->getClientOriginalExtension());
             $isDoc = in_array($ext, ['pdf', 'doc', 'docx', 'xls', 'xlsx'], true);
@@ -221,11 +221,11 @@ class ContentController extends Controller
             $newUrl = trim($validated['image_url']);
             $oldRaw = (string) $content->getRawOriginal('image_url');
             if ($oldRaw !== '' && $oldRaw !== $newUrl && $content->image_url !== $newUrl) {
-                $this->deleteOldImage($content);
+                ContentAttachment::delete($content);
             }
             $validated['image_url'] = $newUrl;
         } elseif ($request->input('remove_image') === '1') {
-            $this->deleteOldImage($content);
+            ContentAttachment::delete($content);
             $validated['image_url'] = null;
         } else {
             // Retain the existing image if no new file was uploaded and not explicitly cleared
@@ -261,8 +261,9 @@ class ContentController extends Controller
             'category' => $category,
         ]);
 
-        $this->deleteOldImage($content);
-        $content->delete(); // SoftDeletes — record still in DB, deleted_at is set
+        // SoftDeletes: the row stays (deleted_at is set) and so does its file, so the
+        // entry can be restored. The file is removed on force delete (ContentObserver).
+        $content->delete();
 
         $this->flushGlobalViewCache($category);
 
@@ -373,61 +374,6 @@ class ContentController extends Controller
             Cache::forget('global_contact');
         } elseif ($category === 'kampanye-darurat') {
             Cache::forget('global_campaign');
-        }
-    }
-
-    /**
-     * Whether another entry still points at the file, as its attachment or inside its
-     * body (Quill images). Soft-deleted entries count too, so a restore keeps its file.
-     * LIKE wildcards in the path are left unescaped: they can only widen the match,
-     * which keeps a file rather than deleting one that is still in use.
-     */
-    private function isFileUsedElsewhere(Content $content, string $relativePath): bool
-    {
-        return Content::withTrashed()
-            ->whereKeyNot($content->getKey())
-            ->where(fn ($q) => $q->where('image_url', 'like', '%'.$relativePath)
-                ->orWhere('body', 'like', '%'.$relativePath.'%'))
-            ->exists();
-    }
-
-    /**
-     * Delete a locally uploaded file if it exists and no other entry uses it.
-     * Sanitizes filename with basename() to strictly prevent path traversal.
-     * Checks both private 'local' disk and legacy 'public' disk.
-     */
-    private function deleteOldImage(Content $content): void
-    {
-        $raw = (string) $content->getRawOriginal('image_url');
-        if ($raw !== '') {
-            $folder = null;
-            $filename = null;
-            if (str_starts_with($raw, '/storage/uploads/')) {
-                $folder = 'uploads/';
-                $filename = substr($raw, strlen('/storage/uploads/'));
-            } elseif (str_starts_with($raw, 'uploads/')) {
-                $folder = 'uploads/';
-                $filename = substr($raw, strlen('uploads/'));
-            } elseif (str_starts_with($raw, '/storage/documents/')) {
-                $folder = 'documents/';
-                $filename = substr($raw, strlen('/storage/documents/'));
-            } elseif (str_starts_with($raw, 'documents/')) {
-                $folder = 'documents/';
-                $filename = substr($raw, strlen('documents/'));
-            }
-
-            if ($filename !== null && $filename !== '' && $folder !== null) {
-                $cleanFilename = basename($filename);
-                if ($cleanFilename !== '' && ! in_array($cleanFilename, ['.', '..'], true)
-                    && ! $this->isFileUsedElsewhere($content, $folder.$cleanFilename)) {
-                    if ($folder === 'documents/') {
-                        Storage::disk('local')->delete('documents/'.$cleanFilename);
-                        Storage::disk('public')->delete('documents/'.$cleanFilename);
-                    } else {
-                        Storage::disk('public')->delete('uploads/'.$cleanFilename);
-                    }
-                }
-            }
         }
     }
 }

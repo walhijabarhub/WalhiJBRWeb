@@ -35,7 +35,7 @@ Namun ada tiga celah nyata di jalur file/dokumen:
 | AUD-09 | Rendah | `pint --test` gagal pada 10 file lama; CI tidak menegakkannya | fixed (semua file lulus; `pint --test` di CI) |
 | AUD-10 | Rendah | `npm audit`: 5 high / 2 moderate di tooling build (Tailwind 3) | open |
 | AUD-11 | Sedang | Redis 200 MB berbagi sesi/cache/antrean; risiko OOM | mitigated (limit container 512 MB; data tetap `maxmemory` 200 MB) |
-| AUD-12 | Rendah | Soft-delete konten tetap menghapus berkas lampirannya | open (keputusan desain) |
+| AUD-12 | Rendah | Soft-delete konten tetap menghapus berkas lampirannya | fixed (berkas dihapus saat force delete) |
 | AUD-13 | Sedang | Backup: off-site opsional, tanpa uji restore, tanpa monitoring | sebagian: checksum + `docker-restore-test.sh` + `OFFSITE_BACKUP_REQUIRED` (default off); tujuan off-site belum dipilih |
 
 ### AUD-01 — Penghapusan berkas yang masih dipakai entri lain (Tinggi)
@@ -99,7 +99,9 @@ Namun ada tiga celah nyata di jalur file/dokumen:
 
 Redis: `maxmemory 200mb`, `volatile-lru`, AOF aktif, limit container 256 MB. Sesi, cache, rate limiter, dan antrean berbagi instans ini. Kunci tanpa TTL (job antrean, cache `forever`) tidak bisa di-evict, sehingga saat penuh Redis menolak tulis (login dan antrean gagal). Rewrite AOF (fork) juga bisa melewati limit cgroup 256 MB sehingga container di-OOM-kill. Rekomendasi: pantau `INFO memory`; naikkan limit container ke ±384 MB atau turunkan `maxmemory`.
 
-### AUD-12 — Soft-delete menghapus berkas (Rendah, open)
+### AUD-12 — Soft-delete menghapus berkas (Rendah, fixed)
+**Update:** `destroy()` hanya melakukan soft-delete; berkas lampiran tetap ada sehingga entri bisa di-restore. Berkas dihapus oleh `ContentObserver::forceDeleted()` lewat `App\Services\Content\ContentAttachment` (tetap dengan guard berkas bersama AUD-01). Belum ada pembersihan otomatis entri di tempat sampah; bila diperlukan, tentukan retensinya lalu jadwalkan `forceDelete`.
+
 `destroy()` melakukan soft-delete pada baris, tetapi menghapus berkas lampiran secara permanen (kecuali dipakai entri lain, sejak AUD-01). Tidak ada UI restore, jadi dampaknya kecil. Bila restore akan disediakan, berkas sebaiknya baru dihapus saat *force delete*.
 
 ### AUD-13 — Backup & pemulihan (Sedang, open — operasional)

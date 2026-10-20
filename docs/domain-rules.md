@@ -115,6 +115,10 @@ Berkas Unggahan Masuk
 6. **Dokumen yang Berkasnya Belum Ada:**
    - `Content::$has_download` bernilai benar hanya untuk tautan eksternal, gambar, atau dokumen lokal yang berkasnya benar-benar ada (lookup sama dengan `DocumentDownloadController` lewat `documentFileLocation()`).
    - Bila berkas tidak ada, view menampilkan tombol nonaktif **"Dokumen belum tersedia"**; tidak ada berkas pengganti yang dibuat. Tombol aktif kembali begitu berkas diunggah lewat panel admin.
+7. **Penghapusan Berkas Lampiran:**
+   - Berkas lampiran (`image_url` lokal: `uploads/…` atau `documents/…`) dihapus lewat `App\Services\Content\ContentAttachment::delete()` saat lampiran diganti/dihapus di form, dan saat entri **di-force-delete** (`ContentObserver::forceDeleted`).
+   - Menghapus entri dari panel admin hanya soft-delete; berkasnya **tetap ada** agar entri bisa di-restore (AUD-12).
+   - Berkas tidak pernah dihapus bila entri lain (termasuk yang di-soft-delete) masih merujuknya di `image_url` atau `body` (AUD-01).
 7. **Referensi Berkas:**
    - `image_url` yang diketik manual tidak boleh menunjuk dokumen privat entri lain (validasi `privateDocumentPathRule`); dokumen harus diunggah langsung pada entrinya.
    - Berkas lama hanya dihapus saat diganti/dihapus bila tidak ada entri lain (termasuk yang di-soft-delete) yang masih memakainya di `image_url` atau `body`.
