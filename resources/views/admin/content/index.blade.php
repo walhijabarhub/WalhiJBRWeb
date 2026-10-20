@@ -121,17 +121,21 @@
                                             </div>
                                         @elseif($category === 'isu-kritis')
                                             @php
-                                                $parts = explode('|', $item->tags);
-                                                $icon = $parts[0] ?? 'Icon-4.svg';
-                                                $badge = $parts[1] ?? '';
+                                                // Same rules as the home page: "icon|badge", or only a badge with
+                                                // a default icon from /iqon/ (Icon-4.svg .. Icon-9.svg).
+                                                $parts = explode('|', (string) $item->tags, 2);
+                                                $hasIcon = count($parts) === 2 && preg_match('/^Icon-\d+\.svg$/', $parts[0]);
+                                                $icon = $hasIcon ? $parts[0] : 'Icon-'.(4 + $loop->index % 6).'.svg';
+                                                $badge = count($parts) === 2 ? $parts[1] : $parts[0];
                                             @endphp
                                             <span class="inline-flex items-center gap-1.5">
-                                                <img src="{{ asset('assets/images/icons/' . $icon) }}" class="w-4 h-4" />
+                                                <img src="{{ asset('iqon/' . $icon) }}" alt="" class="w-4 h-4" />
                                                 <span class="px-1.5 py-0.5 bg-[#f0ede8] text-[#666] text-[10px] rounded">{{ $badge }}</span>
                                             </span>
                                         @elseif($category === 'statistik')
                                             <span class="inline-flex items-center gap-1.5">
-                                                <img src="{{ asset('assets/images/icons/' . $item->tags) }}" class="w-4 h-4" />
+                                                {{-- The home page picks the icon by position (Icon-10.svg .. Icon-13.svg). --}}
+                                                <img src="{{ asset('iqon/Icon-'.(10 + $loop->index % 4).'.svg') }}" alt="" class="w-4 h-4" />
                                                 <span class="text-xs text-gray-500 font-mono">{{ $item->tags }}</span>
                                             </span>
                                         @elseif($category === 'regulasi')
@@ -319,7 +323,7 @@
                 </div>
 
                 <div id="image-preview-wrapper" class="hidden mt-3 p-2 border border-[#eee] rounded bg-gray-50 flex items-center gap-3">
-                    <img id="image-preview-el" src="" class="h-16 w-24 object-cover border border-[#ddd] rounded" />
+                    <img id="image-preview-el" alt="" class="h-16 w-24 object-cover border border-[#ddd] rounded" />
                     <div class="text-xs">
                         <span class="text-[#888] block">Preview File / Gambar</span>
                         <button type="button" data-on-click="clearImagePreview" class="text-[#D95C3F] font-semibold hover:underline">Hapus Berkas</button>
