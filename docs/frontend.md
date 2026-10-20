@@ -57,6 +57,7 @@ resources/views/
 ├── newsletter/
 │   └── unsubscribe.blade.php     # Newsletter unsubscribe confirmation
 ├── partials/
+│   ├── head-assets.blade.php     # Fonts + Vite bundle (+ Lucide with ['lucide' => true]) for public pages
 │   ├── seo-meta.blade.php        # Dynamic meta, OpenGraph, and Twitter tags
 │   ├── site-header.blade.php     # Public header, navigation menu, emergency alert
 │   └── site-footer.blade.php     # Organization details, newsletter widget, social links
@@ -72,7 +73,7 @@ resources/views/
 ```
 
 ### Layout Conventions
-- **Public Views**: Public pages include [partials/seo-meta.blade.php](../resources/views/partials/seo-meta.blade.php), [partials/site-header.blade.php](../resources/views/partials/site-header.blade.php), and [partials/site-footer.blade.php](../resources/views/partials/site-footer.blade.php).
+- **Public Views**: Public pages include [partials/head-assets.blade.php](../resources/views/partials/head-assets.blade.php) (fonts, Vite bundle, optional Lucide) in `<head>`, plus [partials/seo-meta.blade.php](../resources/views/partials/seo-meta.blade.php), [partials/site-header.blade.php](../resources/views/partials/site-header.blade.php), and [partials/site-footer.blade.php](../resources/views/partials/site-footer.blade.php).
 - **Admin Layout**: All views in `admin/` extend `layouts.admin` (`@extends('layouts.admin')`).
   - Includes robots meta tags: `<meta name="robots" content="noindex, nofollow, noarchive, nosnippet">` to shield admin routes from web scrapers and crawlers.
   - Generates dynamic breadcrumbs from route names via `$breadcrumbMap`.
