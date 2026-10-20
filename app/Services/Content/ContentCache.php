@@ -19,6 +19,8 @@ class ContentCache
 
     public const SITEMAP = 'content:sitemap:v2';
 
+    public const REGULASI_COUNTS = 'content:regulasi-counts:v1';
+
     /** Keys owned by the global view composers in AppServiceProvider. */
     private const GLOBAL_KEYS = ['global_contact', 'global_campaign'];
 
@@ -66,7 +68,7 @@ class ContentCache
 
     public static function flush(): void
     {
-        foreach ([self::HOME, self::SITEMAP, ...self::GLOBAL_KEYS] as $key) {
+        foreach ([self::HOME, self::SITEMAP, self::REGULASI_COUNTS, ...self::GLOBAL_KEYS] as $key) {
             Cache::forget($key);
         }
     }
