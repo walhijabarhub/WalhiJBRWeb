@@ -7,7 +7,6 @@ use App\Models\Comment;
 use App\Models\Content;
 use App\Models\Donation;
 use App\Models\Subscriber;
-use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 
@@ -22,11 +21,14 @@ class AdminController extends Controller
             $activeDonations = Content::ofCategory('donasi')->published()->count();
             $activeEvents = Content::ofCategory('pekan-rakyat')->published()->count();
 
-            $totalDonationsAmount = (int) Donation::where('status', 'success')->sum('amount');
-            $successfulDonationsCount = Donation::where('status', 'success')->count();
+            $donationTotals = Donation::successful()->toBase()
+                ->selectRaw('COUNT(*) AS donations, COALESCE(SUM(amount), 0) AS amount')
+                ->first();
+            $totalDonationsAmount = (int) $donationTotals->amount;
+            $successfulDonationsCount = (int) $donationTotals->donations;
             $totalViews = (int) Content::sum('views');
 
-            [$labels, $monthsData] = $this->buildMonthlyChart();
+            [$labels, $monthsData] = Donation::monthlySuccessChart();
 
             return [
                 'total_articles' => $totalArticles,
@@ -46,6 +48,7 @@ class AdminController extends Controller
         $recentTransactions = Donation::orderBy('created_at', 'desc')->take(5)->get();
 
         $latestPostings = Content::publishable()
+            ->select(['id', 'title', 'slug', 'category', 'status', 'author', 'publish_date', 'created_at'])
             ->orderBy('created_at', 'desc')
             ->take(10)
             ->get();
@@ -70,7 +73,7 @@ class AdminController extends Controller
             $activities->push([
                 'type' => 'donation',
                 'title' => 'Donasi Masuk',
-                'detail' => 'Rp '.number_format($donation->amount, 0, ',', '.').' dari '.($donation->donor_name ?: 'Anonim').($donation->status !== 'success' ? ' ('.ucfirst($donation->status).')' : ''),
+                'detail' => 'Rp '.number_format($donation->amount, 0, ',', '.').' dari '.($donation->donor_name ?: 'Anonim').($donation->is_success ? '' : ' ('.$donation->status_label.')'),
                 'icon' => 'heart',
                 'bg' => 'bg-[#eaf4ee]',
                 'color' => 'text-[#256D4A]',
@@ -81,7 +84,7 @@ class AdminController extends Controller
         }
 
         // 2. Recent Comments
-        $comments = Comment::with('content')->latest()->take(10)->get();
+        $comments = Comment::with('content:id,title')->latest()->take(10)->get();
         foreach ($comments as $comment) {
             $contentTitle = $comment->content ? ' di "'.Str::limit($comment->content->title, 25).'"' : '';
             $activities->push([
@@ -98,7 +101,11 @@ class AdminController extends Controller
         }
 
         // 3. Recent Published Content
-        $contents = Content::publishable()->latest()->take(10)->get();
+        $contents = Content::publishable()
+            ->select(['id', 'title', 'slug', 'category', 'author', 'created_at'])
+            ->latest()
+            ->take(10)
+            ->get();
         foreach ($contents as $content) {
             $catName = ucfirst(str_replace('-', ' ', $content->category));
             $activities->push([
@@ -132,39 +139,5 @@ class AdminController extends Controller
         }
 
         return $activities->sortByDesc('timestamp')->take(15)->values()->all();
-    }
-
-    /**
-     * Build monthly donation chart data (real data only — no mock fallback).
-     * Returns [$labels, $data] for the last 12 months.
-     *
-     * @return array{0: array<string>, 1: array<int>}
-     */
-    private function buildMonthlyChart(): array
-    {
-        $labels = [];
-        $data = [];
-
-        $startDate = Carbon::now()->startOfMonth()->subMonths(11);
-
-        $driver = \DB::getDriverName();
-        $dateExpr = $driver === 'sqlite'
-            ? "strftime('%Y-%m', created_at) as period_key"
-            : "DATE_FORMAT(created_at, '%Y-%m') as period_key";
-
-        $monthlyTotals = Donation::where('status', 'success')
-            ->where('created_at', '>=', $startDate)
-            ->selectRaw("{$dateExpr}, SUM(amount) as total")
-            ->groupBy('period_key')
-            ->pluck('total', 'period_key');
-
-        for ($i = 11; $i >= 0; $i--) {
-            $month = Carbon::now()->startOfMonth()->subMonths($i);
-            $key = $month->format('Y-m');
-            $labels[] = $month->translatedFormat("M 'y");
-            $data[] = (int) ($monthlyTotals[$key] ?? 0);
-        }
-
-        return [$labels, $data];
     }
 }
