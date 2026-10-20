@@ -268,7 +268,7 @@
 
                 <!-- Image Preview -->
                 <div id="image-preview-wrapper" class="hidden mt-3 p-2 border border-[#eee] rounded bg-gray-50 flex items-center gap-3">
-                    <img id="image-preview-el" src="" class="h-16 w-24 object-cover border border-[#ddd] rounded" />
+                    <img id="image-preview-el" alt="" class="h-16 w-24 object-cover border border-[#ddd] rounded" />
                     <div class="text-xs">
                         <span class="text-[#888] block">Preview Gambar</span>
                         <button type="button" data-on-click="clearImagePreview" class="text-[#D95C3F] font-semibold hover:underline">Hapus Berkas</button>
