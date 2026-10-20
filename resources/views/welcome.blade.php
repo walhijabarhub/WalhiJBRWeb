@@ -86,7 +86,7 @@
                 [
                     'title' => 'SELAMATKAN HUTAN & AIR',
                     'subtitle' => 'Hentikan Tambang Ilegal & Perusakan Sumber Kehidupan',
-                    'image' => asset('iqon/causes-1-1.jpg'),
+                    'image' => asset('assets/images/resources/causes-1-1.jpg'),
                     'btn1_text' => 'Isu Lingkungan',
                     'btn1_url' => '#isu',
                     'btn2_text' => 'Dukung Donasi',
@@ -95,7 +95,7 @@
                 [
                     'title' => 'KEADILAN RUANG HIDUP',
                     'subtitle' => 'Bersama Komunitas Melindungi Wilayah Kelola Rakyat',
-                    'image' => asset('iqon/causes-1-2.jpg'),
+                    'image' => asset('assets/images/resources/causes-1-2.jpg'),
                     'btn1_text' => 'Tentang Kami',
                     'btn1_url' => route('about'),
                     'btn2_text' => 'Laporan Tahunan',
@@ -339,12 +339,13 @@
                                         $issueIcon = $icons[$idx];
                                     }
                                     
-                                    if ($issue->image_url) {
-                                        if (str_starts_with($issue->image_url, 'http') || str_starts_with($issue->image_url, '/')) {
-                                            $issueImage = asset($issue->image_url);
-                                        } else {
-                                            $issueImage = asset('assets/images/resources/' . $issue->image_url);
-                                        }
+                                    // A bare file name ("causes-1-1.jpg") refers to the bundled theme
+                                    // images; the image_url accessor would map it to /storage/ instead.
+                                    $rawIssueImage = (string) $issue->getRawOriginal('image_url');
+                                    if (preg_match('/^[\w.-]+$/', $rawIssueImage) && is_file(public_path('assets/images/resources/' . $rawIssueImage))) {
+                                        $issueImage = asset('assets/images/resources/' . $rawIssueImage);
+                                    } elseif ($issue->image_url) {
+                                        $issueImage = asset($issue->image_url);
                                     } else {
                                         $issueImage = asset('assets/images/resources/causes-1-' . ($idx + 1) . '.jpg');
                                     }
