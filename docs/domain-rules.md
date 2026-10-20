@@ -65,7 +65,7 @@ Beberapa kategori meng-encode metadata struktural ke dalam kolom `tags`:
   - **❌ SALAH:** `{!! $item->body !!}` (membuka celah XSS).
 
 ### E. Cache & Hitungan Tayang
-- Beranda (`content:home-sections:v2`), sitemap (`content:sitemap:v2`), serta data global kontak & kampanye di-cache lewat `App\Services\Content\ContentCache::remember()`.
+- Beranda (`content:home-sections:v2`), sitemap (`content:sitemap:v2`), jumlah regulasi per jenis (`content:regulasi-counts:v1`), serta data global kontak & kampanye di-cache lewat `App\Services\Content\ContentCache::remember()`.
 - **Jangan menyimpan objek Eloquent langsung ke cache.** Laravel 13 memakai `cache.serializable_classes=false`, sehingga objek model gagal di-unserialize (pernah menyebabkan 500 di beranda). `ContentCache` menyimpan array lalu meng-hydrate kembali menjadi model.
 - Cache dibersihkan otomatis oleh `ContentObserver` setiap konten disimpan, dihapus, atau dipulihkan. Bila struktur data cache berubah, naikkan versi key (`:v3`).
 - Hitungan `views` dicatat ke Redis oleh `ViewCounter::record()` (halaman detail & unduhan dokumen) lalu ditulis ke database oleh `walhi:flush-views` tiap 5 menit. Selisih beberapa menit pada angka tayang adalah perilaku normal.

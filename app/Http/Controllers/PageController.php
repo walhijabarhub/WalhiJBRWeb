@@ -49,7 +49,6 @@ class PageController extends Controller
         $categoryFilter = $request->input('kategori');
 
         $query = Content::ofCategory(ContentCategory::Regulasi)->published();
-        $totalRegulasi = Content::ofCategory(ContentCategory::Regulasi)->published()->count();
 
         if ($search) {
             $query->search((string) $search);
@@ -71,23 +70,41 @@ class PageController extends Controller
 
         $items = $query->orderBy('publish_date', 'desc')->paginate(10)->withQueryString();
 
-        // Regulation type counts (separate targeted queries)
-        $countUU = Content::ofCategory(ContentCategory::Regulasi)->published()
-            ->where('tags', 'like', '%undang-undang%')->count();
-
-        $countPP = Content::ofCategory(ContentCategory::Regulasi)->published()
-            ->where('tags', 'like', '%peraturan pemerintah%')->count();
-
-        $countPD = Content::ofCategory(ContentCategory::Regulasi)->published()
-            ->where('tags', 'like', '%peraturan daerah%')->count();
-
-        $countKM = Content::ofCategory(ContentCategory::Regulasi)->published()
-            ->where(function ($q) {
-                $q->where('tags', 'like', '%keputusan menteri%')
-                    ->orWhere('tags', 'like', '%peraturan menteri%');
-            })->count();
+        [
+            'total' => $totalRegulasi,
+            'uu' => $countUU,
+            'pp' => $countPP,
+            'pd' => $countPD,
+            'km' => $countKM,
+        ] = ContentCache::remember(ContentCache::REGULASI_COUNTS, now()->addHour(), fn () => $this->regulasiCounts());
 
         return view('regulasi', compact('items', 'countUU', 'countPP', 'countPD', 'countKM', 'search', 'categoryFilter', 'totalRegulasi'));
+    }
+
+    /**
+     * Published regulation counts per type, in one aggregate query.
+     *
+     * @return array{total: int, uu: int, pp: int, pd: int, km: int}
+     */
+    private function regulasiCounts(): array
+    {
+        $row = Content::ofCategory(ContentCategory::Regulasi)
+            ->published()
+            ->toBase()
+            ->selectRaw('COUNT(*) AS total')
+            ->selectRaw('SUM(CASE WHEN tags LIKE ? THEN 1 ELSE 0 END) AS uu', ['%undang-undang%'])
+            ->selectRaw('SUM(CASE WHEN tags LIKE ? THEN 1 ELSE 0 END) AS pp', ['%peraturan pemerintah%'])
+            ->selectRaw('SUM(CASE WHEN tags LIKE ? THEN 1 ELSE 0 END) AS pd', ['%peraturan daerah%'])
+            ->selectRaw('SUM(CASE WHEN tags LIKE ? OR tags LIKE ? THEN 1 ELSE 0 END) AS km', ['%keputusan menteri%', '%peraturan menteri%'])
+            ->first();
+
+        return [
+            'total' => (int) $row->total,
+            'uu' => (int) $row->uu,
+            'pp' => (int) $row->pp,
+            'pd' => (int) $row->pd,
+            'km' => (int) $row->km,
+        ];
     }
 
     public function siaranPers()
