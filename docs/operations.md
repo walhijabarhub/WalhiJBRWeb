@@ -168,7 +168,7 @@ Agar email tidak masuk spam, tambahkan record SPF/DKIM untuk domain pengirim (di
 | `walhi:donations-reconcile` | tiap 15 menit | `dc exec app php artisan walhi:donations-reconcile` |
 | `walhi:flush-views` | tiap 5 menit | `dc exec app php artisan walhi:flush-views` |
 | `walhi:prune-personal-data` | tanggal 1, 03:00 | `dc exec app php artisan walhi:prune-personal-data --dry-run` |
-| `model:prune` (`audit_logs` > `PRIVACY_AUDIT_LOG_DAYS`) | harian 02:30 | `dc exec app php artisan model:prune --pretend` |
+| `model:prune` (`audit_logs` > `PRIVACY_AUDIT_LOG_DAYS`; jumlah yang dihapus dicatat sebagai `AUDIT_LOGS_PRUNED`) | harian 02:30 | `dc exec app php artisan model:prune --pretend` |
 | `queue:prune-failed --hours=720` | harian 02:40 | `dc exec app php artisan queue:failed` |
 | `queue:prune-batches --hours=720` | harian 02:45 | — |
 | `auth:clear-resets` (token reset password kedaluwarsa) | harian 02:50 | — |

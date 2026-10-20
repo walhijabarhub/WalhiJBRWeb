@@ -3,11 +3,14 @@
 namespace App\Providers;
 
 use App\Listeners\CheckServicesHealth;
+use App\Models\AuditLog;
 use App\Models\Content;
 use App\Observers\ContentObserver;
 use App\Rules\SafeUrl;
+use App\Services\AuditLogService;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Database\Events\ModelsPruned;
 use Illuminate\Foundation\Events\DiagnosingHealth;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -44,6 +47,16 @@ class AppServiceProvider extends ServiceProvider
 
         // /up also checks the database and the cache store.
         Event::listen(DiagnosingHealth::class, CheckServicesHealth::class);
+
+        // Removing audit trail rows is itself recorded (like walhi:prune-personal-data).
+        Event::listen(ModelsPruned::class, function (ModelsPruned $event) {
+            if ($event->model === AuditLog::class && $event->count > 0) {
+                AuditLogService::log('AUDIT_LOGS_PRUNED', 'System', null, [
+                    'deleted' => $event->count,
+                    'retention_days' => config('privacy.audit_log_days'),
+                ]);
+            }
+        });
 
         Event::listen(Lockout::class, function (Lockout $event) {
             Log::warning('Security Alert: Account Lockout triggered due to excessive failed login attempts.', [
