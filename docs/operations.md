@@ -25,7 +25,7 @@ alias dc='docker compose -f docker-compose.prod.yml'   # singkatan untuk sesi in
 
 ```bash
 dc ps                                   # semua container harus running/healthy
-curl -fsS https://walhijabar.or.id/up   # 200 = aplikasi sehat
+curl -fsS https://www.walhijabar.or.id/up   # 200 = aplikasi, database & Redis sehat; 500 = salah satunya bermasalah (detail di log)
 dc logs --tail=100 app                  # log PHP-FPM / Laravel
 dc exec app tail -n 100 storage/logs/laravel-$(date +%F).log
 dc exec app php artisan schedule:list   # jadwal reconcile / flush-views / prune
