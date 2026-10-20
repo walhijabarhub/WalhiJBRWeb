@@ -154,6 +154,16 @@ if [ "$CONTAINER_ROLE" = "app" ] && [ -d "/var/www/html/public_shared" ]; then
     if [ ! -f "/var/www/html/public_shared/.assets_synced" ] || [ "/var/www/html/public/build" -nt "/var/www/html/public_shared/.assets_synced" ]; then
         echo "       Syncing updated public assets to shared Nginx volume..."
         cp -ru /var/www/html/public/. /var/www/html/public_shared/ 2>/dev/null || cp -r /var/www/html/public/. /var/www/html/public_shared/
+        # cp never deletes: remove files that are no longer in the image (e.g. pruned theme
+        # assets), so nginx stops serving them. build/ is kept because pages still open
+        # during a deploy may request the previous hashed bundles.
+        (
+            cd /var/www/html/public_shared || exit 0
+            find . -type f ! -path './build/*' ! -name '.assets_synced' -print | while IFS= read -r f; do
+                [ -e "/var/www/html/public/$f" ] || [ -L "/var/www/html/public/$f" ] || rm -f -- "$f"
+            done
+            find . -mindepth 1 -type d -empty ! -path './build' ! -path './build/*' -delete 2>/dev/null || true
+        )
         touch /var/www/html/public_shared/.assets_synced 2>/dev/null || true
     else
         echo "       Shared public assets already up-to-date, skipping sync..."
