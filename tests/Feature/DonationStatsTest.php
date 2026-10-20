@@ -94,4 +94,17 @@ class DonationStatsTest extends TestCase
 
         $this->assertStringContainsString('(Menunggu Pembayaran)', $activities->firstWhere('type', 'donation')['detail']);
     }
+
+    /**
+     * Without donations Chart.js would centre the y-axis on 0 and show negative
+     * amounts ("Rp -0,2"); both charts pin the axis at zero (#145).
+     */
+    public function test_donation_charts_start_the_y_axis_at_zero(): void
+    {
+        foreach (['/admin', route('admin.content.index', 'donasi')] as $page) {
+            $html = $this->get($page)->assertOk()->getContent();
+
+            $this->assertMatchesRegularExpression('/y:\s*\{[^{}]*min:\s*0,\s*suggestedMax:\s*100000,/', $html, $page);
+        }
+    }
 }
