@@ -2,11 +2,13 @@
 
 namespace App\Providers;
 
+use App\Listeners\CheckServicesHealth;
 use App\Models\Content;
 use App\Observers\ContentObserver;
 use App\Rules\SafeUrl;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Foundation\Events\DiagnosingHealth;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Event;
@@ -39,6 +41,9 @@ class AppServiceProvider extends ServiceProvider
                 ->symbols()
                 ->uncompromised();
         });
+
+        // /up also checks the database and the cache store.
+        Event::listen(DiagnosingHealth::class, CheckServicesHealth::class);
 
         Event::listen(Lockout::class, function (Lockout $event) {
             Log::warning('Security Alert: Account Lockout triggered due to excessive failed login attempts.', [

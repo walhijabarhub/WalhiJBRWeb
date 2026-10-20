@@ -223,7 +223,7 @@ Container produksi dibatasi secara optimal (*resource limits*) untuk memaksimalk
 
 ### Healthcheck & Pemantauan
 - `docker compose -f docker-compose.prod.yml ps` menampilkan status `healthy` tiap container (PHP-FPM via `/ping`, nginx via `/nginx-health`, MySQL, Redis).
-- Endpoint aplikasi `/up` cocok untuk uptime monitor eksternal (UptimeRobot, Better Stack, dll.). Pasang alert untuk `/up`, tanggal kedaluwarsa sertifikat, dan ruang disk.
+- Endpoint aplikasi `/up` cocok untuk uptime monitor eksternal (UptimeRobot, Better Stack, dll.). Selain memastikan aplikasi boot, `/up` menjalankan `select 1` ke database dan menulis/membaca satu key cache (Redis); bila salah satunya gagal, responsnya 500 (`App\Listeners\CheckServicesHealth`). Pasang alert untuk `/up`, tanggal kedaluwarsa sertifikat, dan ruang disk.
 - Request PHP yang lebih lambat dari 5 detik tercatat di `storage/logs/php-fpm-slow.log`.
 
 ### Memeriksa Penggunaan CPU & RAM Realtime:
