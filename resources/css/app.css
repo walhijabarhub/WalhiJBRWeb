@@ -1,5 +1,6 @@
-@import url('https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,600&display=swap');
-
+/* Fonts are loaded with <link> tags in each page head (Montserrat from Google Fonts,
+   Aspekta from /assets/fonts/webfonts/font-face.css); an @import here would load
+   Montserrat a second time and block rendering until it arrives. */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
