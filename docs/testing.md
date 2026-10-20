@@ -7,7 +7,7 @@ Dokumen ini memandu pengembang dan AI coding agents dalam menjalankan, memelihar
 ## 1. Ikhtisar Test Suite
 
 - **Framework:** PHPUnit 12 (`php artisan test`)
-- **Total:** **240 test, 1080 assertion**, semuanya lulus (per Oktober 2026)
+- **Total:** **298 test, 1291 assertion**, semuanya lulus (per Oktober 2026)
 - **Cakupan:** autentikasi & 2FA, RBAC, manajemen konten, keamanan konten & CSP, dokumen privat, donasi & Midtrans, audit log, cache & pencarian, newsletter, retensi data, CAPTCHA, proxy tepercaya, SEO.
 
 Perbarui angka di atas (dan di `AGENTS.md`) bila jumlah test berubah signifikan.
@@ -58,7 +58,7 @@ docker rm -f walhi-test-mysql
 | `tests/Feature/DonationGatewayHardeningTest.php` | `fraud_status`, konfirmasi Status API, retry Snap, rekonsiliasi & kedaluwarsa, allowlist IP. | 13 |
 | `tests/Feature/DocumentStorageTest.php` | Dokumen privat (SEC-008), otorisasi unduhan, anti open-redirect, injeksi header, file legacy, command migrasi. | 12 |
 | `tests/Feature/RbacMatrixTest.php` | Matriks izin Admin/Editor/Subscriber, kategori sensitif, aksi hapus, kategori arbitrer → 404 (SEC-007/010). | 11 |
-| `tests/Feature/SEOAndResponsiveTest.php` | Halaman statis, meta OpenGraph/Twitter, `sitemap.xml`, `robots.txt` (sitemap ke host www), template nginx HTTPS (domain tanpa www → 301 ke www). | 13 |
+| `tests/Feature/SEOAndResponsiveTest.php` | Halaman statis, meta OpenGraph/Twitter, `sitemap.xml`, `robots.txt` (sitemap ke host www), template nginx HTTPS (domain tanpa www → 301 ke www), cache 1 tahun hanya untuk `/build/`. | 14 |
 | `tests/Feature/CanonicalHostSignedLinkTest.php` | Link konfirmasi newsletter (dibuat worker dari `APP_URL`) tetap valid setelah redirect domain tanpa www → www; link lama tetap diterima; link tanpa tanda tangan, diubah, atau kedaluwarsa ditolak. | 4 |
 | `tests/Feature/TurnstileCaptchaTest.php` | Form tetap jalan tanpa key, token wajib & diverifikasi server, fail-closed, widget & CSP. | 7 |
 | `tests/Feature/DonationTest.php` | State machine donasi, idempotensi, amount mismatch, locking (SEC-009/013). | 5 |
@@ -66,10 +66,24 @@ docker rm -f walhi-test-mysql
 | `tests/Feature/BannerHeroTest.php` | Banner beranda (fallback, published vs draft, simpan/ubah). | 4 |
 | `tests/Feature/AdminUserCommandTest.php` | `walhi:create-admin`, prompt tersembunyi, password lemah ditolak (SEC-003/004). | 3 |
 | `tests/Feature/TrustedProxyTest.php` | Header `X-Forwarded-*` dari klien diabaikan tanpa proxy tepercaya. | 2 |
-| `tests/Feature/StorageIntegrityAuditTest.php` | Audit Oktober 2026: berkas bersama tidak ikut terhapus, `image_url` tidak bisa menunjuk dokumen privat lain, nginx memblokir `/storage/documents/`, migrasi dokumen legacy aman (dry-run, checksum), pratinjau draf kategori sensitif. | 13 |
+| `tests/Feature/StorageIntegrityAuditTest.php` | Audit Oktober 2026: berkas bersama tidak ikut terhapus, `image_url` tidak bisa menunjuk dokumen privat lain, nginx memblokir `/storage/documents/`, migrasi dokumen legacy aman (dry-run, checksum), pratinjau draf kategori sensitif, berkas lampiran tetap ada saat soft-delete dan dihapus saat force delete (AUD-12). | 15 |
 | `tests/Feature/MissingDocumentDisplayTest.php` | Dokumen yang berkasnya tidak ada di disk menampilkan tombol nonaktif "Dokumen belum tersedia" (daftar & detail), bukan tautan 404; berkas yang ada dan tautan eksternal tetap aktif; PDF tidak dirender sebagai gambar. | 7 |
 | `tests/Feature/Auth/*` (lainnya) | Login `/portal-jabar`, reset & konfirmasi password, update password, verifikasi email, registrasi nonaktif. | 21 |
 | `tests/Feature/PublicPagesSmokeTest.php` | Smoke test: semua halaman publik (termasuk sitemap & robots) tampil 200 pada database kosong; `favicon.ico` tidak kosong. | 17 |
+| `tests/Feature/ImageOptimizerTest.php` | Gambar unggahan diperkecil ke maks. 1920 px (JPEG/PNG, sampul & editor); GIF, berkas rusak, dan gambar di atas batas piksel tidak diubah. | 7 |
+| `tests/Feature/DonationStatsTest.php` | Statistik donasi admin (total, donatur unik, rata-rata, grafik 12 bulan) hanya dari donasi berhasil; label status; sumbu grafik mulai dari nol. | 5 |
+| `tests/Feature/ContentDetailCacheTest.php` | Sidebar & rekomendasi halaman detail: tanpa artikel itu sendiri/draf, top-up berita, tanpa `ORDER BY RAND()`, cache diperbarui saat konten terbit. | 4 |
+| `tests/Feature/ScheduledPruningTest.php` | Jadwal `model:prune`, `queue:prune-*`, `auth:clear-resets`; audit log kedaluwarsa dihapus dan dicatat sebagai `AUDIT_LOGS_PRUNED`. | 3 |
+| `tests/Feature/RegulasiCountsTest.php` | Jumlah regulasi per jenis dari satu query agregat ber-cache, hanya konten terbit, diperbarui saat konten disimpan. | 3 |
+| `tests/Feature/LazyImagesTest.php` | Background di bawah layar pertama memakai `data-lazy-bg`, hero tetap langsung; baris pertama daftar `eager`, sisanya `lazy`. | 3 |
+| `tests/Feature/AdminContentIconsTest.php` | Ikon isu kritis & statistik di admin dari `/iqon/` dan ada di disk; preview gambar tanpa `src` kosong. | 3 |
+| `tests/Feature/HealthCheckTest.php` | `/up` 200 saat database & cache sehat, 500 bila salah satunya gagal. | 3 |
+| `tests/Feature/HomeImagePathsTest.php` | Semua gambar bawaan yang dirujuk beranda ada di `public/`, termasuk isu kritis dengan nama berkas tema. | 2 |
+| `tests/Feature/FontLoadingTest.php` | `app.css` tidak `@import` font; setiap halaman ber-`<head>` memuat Montserrat lewat `<link>`. | 2 |
+| `tests/Feature/LucideIconsTest.php` | Setiap ikon `data-lucide` (termasuk yang dinamis) ada di `resources/js/icons.js`; tidak ada Lucide dari CDN. | 2 |
+| `tests/Feature/PublicHeadAssetsTest.php` | Halaman publik memuat font/Vite/Lucide hanya lewat `partials/head-assets`. | 1 |
+| `tests/Feature/BundledAssetsExistTest.php` | Setiap path aset literal (`assets/…`, `iqon/…`) di kode ada di `public/`. | 1 |
+| `tests/Feature/PublicAssetSyncTest.php` | Entrypoint menghapus berkas yang sudah tidak ada di image dari volume publik nginx (kecuali `build/`). | 1 |
 
 ---
 

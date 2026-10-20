@@ -4,6 +4,37 @@ Semua perubahan penting pada platform web WALHI Jawa Barat. Setiap merge ke `pro
 
 ## [Belum dirilis]
 
+### Optimasi Oktober 2026 (#130–#150)
+Hasil analisis optimasi repo setelah audit produksi 19 Oktober 2026. Setiap PR berdiri sendiri, kecuali #140 (di atas #139) dan #141 (di atas #134).
+
+#### Performa
+- Cache 1 tahun `immutable` hanya untuk `/build/` (berkas Vite ber-hash); aset statis lain 7 hari agar penggantian logo/gambar segera terlihat (#130).
+- Google Fonts tidak lagi dimuat dua kali (`@import` di `app.css` dihapus) (#131).
+- `/regulasi`: enam `COUNT` menjadi satu query agregat ber-cache (#135).
+- Halaman detail konten: sidebar & rekomendasi dari cache, tanpa `ORDER BY RAND()` (#136).
+- Lazy-load `<img>` dan background di bawah layar pertama; `call-to-action-bg.jpg` 739 KB → 110 KB (#138).
+- Ikon Lucide dibundel dari npm (49 ikon, 3,8 KB gzip) menggantikan UMD lengkap dari unpkg; unpkg dihapus dari CSP (#140).
+- 534 berkas template tak terpakai (35,6 MB) dihapus dari `public/assets` (#141).
+- Gambar unggahan admin diperkecil ke maks. 1920 px dengan orientasi EXIF dibetulkan (#146).
+
+#### Diperbaiki
+- Gambar isu kritis & banner fallback beranda 404 (#134).
+- Ikon isu kritis & statistik di admin 404; `<img src="">` di form admin (#142).
+- Soft-delete konten tidak lagi menghapus berkas lampiran; berkas dihapus saat force delete (AUD-12) (#144).
+- Sumbu grafik donasi admin tidak lagi negatif saat belum ada data (#145, test regresi #149).
+- `favicon.ico` berukuran 0 byte (#133).
+- Berkas yang dihapus dari `public/` tidak lagi tertinggal di volume nginx (`docker-entrypoint.sh` memakai `cp -ru` tanpa penghapusan) (#150).
+
+#### Ditambahkan
+- `/up` memeriksa database dan cache/Redis (500 bila salah satunya gagal) (#143).
+- Pruning harian `audit_logs` (`PRIVACY_AUDIT_LOG_DAYS`, default 730 hari), `failed_jobs`, `job_batches`, dan token reset password (#132); jumlah audit log yang dihapus dicatat sebagai `AUDIT_LOGS_PRUNED` (#148).
+- Smoke test seluruh halaman publik dan test regresi untuk tiap perubahan di atas (total 298 test).
+
+#### Diubah
+- Aset `<head>` 15 halaman publik disatukan di `partials/head-assets` (#139).
+- Statistik donasi admin disatukan di `Donation::monthlySuccessChart()` / scope `successful()`; query dashboard hanya memuat kolom yang dipakai (#137).
+- Dependensi `@tailwindcss/vite` (tidak dipakai) dan folder duplikat `iqon/` di root dihapus (#133).
+
 ### Dokumentasi
 - Seluruh dokumentasi diperbarui sesuai keadaan sistem setelah audit Oktober 2026.
 - Dokumen baru: `docs/configuration.md` (referensi `.env`), `docs/operations.md` (runbook), `docs/admin-guide.md` (panduan pengelola konten), dan `CHANGELOG.md`.
