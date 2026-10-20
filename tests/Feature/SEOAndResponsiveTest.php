@@ -176,5 +176,43 @@ class SEOAndResponsiveTest extends TestCase
         $response->assertStatus(200)
             ->assertSee('<meta name="google-site-verification" content="google8abf3dd50328ee1e">', false);
     }
-}
 
+    /**
+     * nginx serves public/robots.txt as a static file, so its Sitemap line must name
+     * the canonical www host (absolute URL, as the robots.txt standard requires).
+     */
+    public function test_robots_txt_points_to_canonical_www_sitemap(): void
+    {
+        $robots = file_get_contents(public_path('robots.txt'));
+
+        $this->assertStringContainsString("Sitemap: https://www.walhijabar.or.id/sitemap.xml\n", $robots);
+        $this->assertDoesNotMatchRegularExpression('#Sitemap: https?://walhijabar\.or\.id#', $robots);
+    }
+
+    /**
+     * The HTTPS nginx template makes www the only host that serves the site: the bare
+     * domain (default server) and plain HTTP redirect there with one 301, while ACME
+     * challenges stay reachable on port 80 for certificate renewal.
+     */
+    public function test_nginx_https_redirects_bare_domain_to_www(): void
+    {
+        $conf = file_get_contents(base_path('docker/nginx/https/default.conf.template'));
+        $servers = preg_split('/^server \{/m', $conf);
+        array_shift($servers);
+        $this->assertCount(3, $servers);
+        [$http, $apex, $www] = $servers;
+
+        $this->assertStringContainsString('location ^~ /.well-known/acme-challenge/', $http);
+        $this->assertStringContainsString('return 301 https://www.${NGINX_SERVER_NAME}$request_uri;', $http);
+
+        $this->assertMatchesRegularExpression('/listen 443 ssl default_server;/', $apex);
+        $this->assertMatchesRegularExpression('/server_name \$\{NGINX_SERVER_NAME\};/', $apex);
+        $this->assertStringContainsString('return 301 https://www.${NGINX_SERVER_NAME}$request_uri;', $apex);
+        $this->assertStringContainsString('Strict-Transport-Security', $apex);
+        $this->assertStringNotContainsString('laravel.conf', $apex);
+
+        $this->assertMatchesRegularExpression('/server_name www\.\$\{NGINX_SERVER_NAME\};/', $www);
+        $this->assertStringContainsString('include /etc/nginx/snippets/laravel.conf;', $www);
+        $this->assertStringNotContainsString('return 301', $www);
+    }
+}

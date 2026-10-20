@@ -49,9 +49,13 @@ class Subscriber extends Model
         return $this->confirmed_at !== null;
     }
 
+    /**
+     * Signed over the path only, so the link stays valid whichever host it is opened on
+     * (it is built in the queue worker from APP_URL, and the bare domain redirects to www).
+     */
     public function confirmationUrl(): string
     {
-        return URL::temporarySignedRoute('newsletter.confirm', now()->addDays(7), ['subscriber' => $this->id]);
+        return url(URL::temporarySignedRoute('newsletter.confirm', now()->addDays(7), ['subscriber' => $this->id], absolute: false));
     }
 
     public function unsubscribeUrl(): string

@@ -1,7 +1,20 @@
 # HTTPS mode (NGINX_CONF=https). Certificates come from Let's Encrypt via
 # setup-ssl.sh (webroot method), mounted read-only from /etc/letsencrypt.
+#
+# Canonical host: www.${NGINX_SERVER_NAME}. The bare domain (and any other host
+# name reaching this server) is redirected there with a single 301, so search
+# engines see one site instead of two duplicates.
 
 include /etc/nginx/realip/*.conf;
+
+# One certificate covers both names (SAN: ${NGINX_SERVER_NAME}, www.${NGINX_SERVER_NAME}).
+ssl_certificate /etc/letsencrypt/live/${NGINX_SERVER_NAME}/fullchain.pem;
+ssl_certificate_key /etc/letsencrypt/live/${NGINX_SERVER_NAME}/privkey.pem;
+ssl_protocols TLSv1.2 TLSv1.3;
+ssl_prefer_server_ciphers off;
+ssl_session_timeout 1d;
+ssl_session_cache shared:SSL:10m;
+ssl_session_tickets off;
 
 server {
     listen 80 default_server;
@@ -21,7 +34,23 @@ server {
     }
 
     location / {
-        return 301 https://$host$request_uri;
+        return 301 https://www.${NGINX_SERVER_NAME}$request_uri;
+    }
+}
+
+# Bare domain and unknown hosts → https://www.${NGINX_SERVER_NAME} (default for 443).
+server {
+    listen 443 ssl default_server;
+    listen [::]:443 ssl default_server;
+    http2 on;
+    server_name ${NGINX_SERVER_NAME};
+
+    # Same policy the application sends, so the bare domain keeps HSTS (preload
+    # requires it on the apex as well).
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
+
+    location / {
+        return 301 https://www.${NGINX_SERVER_NAME}$request_uri;
     }
 }
 
@@ -29,15 +58,7 @@ server {
     listen 443 ssl;
     listen [::]:443 ssl;
     http2 on;
-    server_name ${NGINX_SERVER_NAME} www.${NGINX_SERVER_NAME};
-
-    ssl_certificate /etc/letsencrypt/live/${NGINX_SERVER_NAME}/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/${NGINX_SERVER_NAME}/privkey.pem;
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_prefer_server_ciphers off;
-    ssl_session_timeout 1d;
-    ssl_session_cache shared:SSL:10m;
-    ssl_session_tickets off;
+    server_name www.${NGINX_SERVER_NAME};
 
     include /etc/nginx/snippets/laravel.conf;
 }

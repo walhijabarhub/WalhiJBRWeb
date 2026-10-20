@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\ContentCategory;
 use App\Http\Controllers\Admin\AdminCommentController;
 use App\Http\Controllers\Admin\AdminController;
 use App\Http\Controllers\Admin\AdminSubscriberController;
@@ -11,6 +12,7 @@ use App\Http\Controllers\PageController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PublicContentController;
 use App\Http\Controllers\SubscriptionController;
+use App\Http\Middleware\ValidateSignatureAnyHost;
 use Illuminate\Support\Facades\Route;
 
 // ============================================================
@@ -44,7 +46,7 @@ Route::post('/newsletter/subscribe', [SubscriptionController::class, 'subscribe'
     ->middleware('throttle:comment')
     ->name('newsletter.subscribe');
 Route::get('/newsletter/konfirmasi/{subscriber}', [SubscriptionController::class, 'confirm'])
-    ->middleware(['signed', 'throttle:6,1'])
+    ->middleware([ValidateSignatureAnyHost::class, 'throttle:6,1'])
     ->name('newsletter.confirm');
 Route::get('/newsletter/berhenti/{token}', [SubscriptionController::class, 'showUnsubscribe'])
     ->middleware('throttle:30,1')
@@ -125,7 +127,7 @@ Route::middleware(['auth', 'verified', 'two-factor'])->group(function () {
             // WYSIWYG Editor image upload (Quill)
             Route::post('/upload-image', [ContentController::class, 'uploadEditorImage'])->name('upload-image');
 
-            $categoryPattern = implode('|', array_map(fn (\App\Enums\ContentCategory $c) => $c->value, \App\Enums\ContentCategory::cases()));
+            $categoryPattern = implode('|', array_map(fn (ContentCategory $c) => $c->value, ContentCategory::cases()));
 
             // "Tentang" sub-prefix (sejarah, visi-misi, dewan-nasional, etc.)
             Route::prefix('tentang')->where(['category' => $categoryPattern])->group(function () {
@@ -146,7 +148,7 @@ Route::middleware(['auth', 'verified', 'two-factor'])->group(function () {
 
         // Destructive / Export actions restricted to admin role only
         Route::middleware('role:admin')->group(function () {
-            $categoryPattern = implode('|', array_map(fn (\App\Enums\ContentCategory $c) => $c->value, \App\Enums\ContentCategory::cases()));
+            $categoryPattern = implode('|', array_map(fn (ContentCategory $c) => $c->value, ContentCategory::cases()));
 
             Route::delete('/comments/{comment}', [AdminCommentController::class, 'destroy'])->name('comments.destroy');
             Route::get('/subscribers/export', [AdminSubscriberController::class, 'export'])->name('subscribers.export');

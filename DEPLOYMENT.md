@@ -138,6 +138,8 @@ Skrip ini otomatis:
 2. Menerbitkan sertifikat Let's Encrypt untuk `<domain>` & `www.<domain>` dengan **metode webroot** — nginx tetap menyala dan melayani `/.well-known/acme-challenge/` dari `docker/certbot/www`.
 3. Memasang hook `/etc/letsencrypt/renewal-hooks/deploy/reload-walhi-nginx.sh` sehingga nginx di-reload setiap kali sertifikat diperpanjang (oleh timer systemd certbot).
 4. Mengubah `.env`: `NGINX_CONF=https`, `NGINX_SERVER_NAME`, `APP_URL=https://…`, `SESSION_SECURE_COOKIE=true`, lalu menjalankan ulang stack.
+
+> **Host kanonis: `www.<domain>`.** Pada mode `https`, nginx hanya melayani situs di `https://www.<domain>`. Domain tanpa www, HTTP, dan host lain dialihkan dengan satu `301` ke `https://www.<domain>` (HSTS tetap dikirim di domain tanpa www). Setel `APP_URL=https://www.<domain>`. `/.well-known/acme-challenge/` di port 80 tidak dialihkan agar perpanjangan sertifikat tetap berjalan. Health check `deploy.sh` memeriksa `https://www.<domain>/up`.
 5. Menguji perpanjangan dengan `certbot renew --dry-run`.
 
 Konfigurasi nginx kini **versioned di repo** (`docker/nginx/http`, `docker/nginx/https`, `docker/nginx/snippets`) dan dipilih lewat `NGINX_CONF` — tidak ada lagi file yang ditulis ulang di server.
