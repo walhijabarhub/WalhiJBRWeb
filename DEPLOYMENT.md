@@ -164,7 +164,7 @@ Nginx adalah server terdepan; IP klien diteruskan ke PHP sebagai `REMOTE_ADDR`, 
 
 ## 💾 Backup & Restore (Database + File Unggahan)
 
-`docker-backup.sh` membuat dua berkas per backup: dump MySQL (`*_mysql_*.sql.gz`) dan arsip `storage/app` (`*_files_*.tar.gz`, berisi dokumen privat dan unggahan publik). Skrip **berhenti dengan error** bila dump gagal, terpotong, atau arsip rusak, dan bisa mengirim notifikasi kegagalan.
+`docker-backup.sh` membuat dua berkas per backup: dump MySQL (`*_mysql_*.sql.gz`) dan arsip `storage/app` (`*_files_*.tar.gz`, berisi dokumen privat dan unggahan publik). Setiap berkas punya pasangan checksum `<berkas>.sha256` (ikut disalin off-site). Skrip **berhenti dengan error** bila dump gagal, terpotong, atau arsip rusak, dan bisa mengirim notifikasi kegagalan.
 
 ### Pengaturan (di `.env` server)
 | Variabel | Fungsi |
@@ -173,6 +173,7 @@ Nginx adalah server terdepan; IP klien diteruskan ke PHP sebagai `REMOTE_ADDR`, 
 | `OFFSITE_BACKUP_TARGET` | **Sangat disarankan.** Remote `rclone` (mis. `r2:walhi-backups`) atau `s3://bucket/path` |
 | `BACKUP_ALERT_WEBHOOK` | URL (Slack/Discord/dll.) yang menerima pesan JSON saat backup gagal |
 | `BACKUP_RETENTION_DAYS` | Retensi backup rutin (default 14 hari; snapshot pra-deploy 30 hari) |
+| `OFFSITE_BACKUP_REQUIRED` | Default `false` (hanya peringatan). `true` = backup **gagal + alert** bila `OFFSITE_BACKUP_TARGET` kosong. Aktifkan hanya setelah langkah di bawah selesai. |
 
 ### Backup manual & otomatis
 ```bash
@@ -187,6 +188,22 @@ cd /var/www/walhi_app
                     /var/backups/walhi/walhi_prod_files_YYYYMMDD_HHMMSS.tar.gz
 ```
 Skrip meminta konfirmasi (`restore`), mengaktifkan maintenance mode, memulihkan database dan (opsional) file, lalu mematikan maintenance mode. **Uji restore secara berkala** (mis. tiap bulan di server staging) — backup yang belum pernah dipulihkan belum terbukti.
+
+### Uji restore (tanpa menyentuh situs)
+```bash
+./docker-restore-test.sh walhi_prod_mysql_YYYYMMDD_HHMMSS.sql.gz walhi_prod_files_YYYYMMDD_HHMMSS.tar.gz
+```
+Memverifikasi checksum, mengimpor dump ke container MySQL **sementara tanpa jaringan** (bukan `walhi_prod_db`, tanpa volume produksi), menampilkan jumlah baris & migrasi terakhir, lalu memeriksa bahwa setiap dokumen yang dirujuk `contents.image_url` ada di arsip. Exit `0` = lengkap, `1` = gagal restore/checksum, `2` = database pulih tetapi ada dokumen hilang. Semua dibersihkan otomatis. Jalankan di staging, atau di VPS saat sepi (container dibatasi 1 GB RAM). Uji dari **salinan off-site**, bukan dari `/var/backups/walhi`.
+
+### Mengaktifkan backup off-site (urutan aman)
+Kredensial **tidak pernah** disimpan di repository. Pilihan tujuan: **Cloudflare R2** atau **Amazon S3** (penyimpanan objek terpisah dari VPS; disarankan), atau Google Drive lewat `rclone` (perlu pengelolaan token & retensi).
+
+1. Buat bucket khusus backup dan kunci API dengan akses **hanya** ke bucket itu. Aktifkan lifecycle/retensi di bucket (mis. hapus setelah 90 hari).
+2. Di VPS: `apt install rclone` lalu `rclone config` (untuk R2 pilih tipe S3, provider Cloudflare). Konfigurasi tersimpan di `/root/.config/rclone/rclone.conf`; pastikan `chmod 600`.
+3. Isi `.env` server: `OFFSITE_BACKUP_TARGET=r2:walhi-backups` (nama remote:bucket). Biarkan `OFFSITE_BACKUP_REQUIRED=false`.
+4. Jalankan `./docker-backup.sh`, lalu cek `rclone ls r2:walhi-backups` — harus ada 4 berkas (`.sql.gz`, `.tar.gz`, dan dua `.sha256`).
+5. Di staging/mesin lain: unduh salinan off-site dan jalankan `./docker-restore-test.sh` sampai exit `0`.
+6. Setelah langkah 4–5 berhasil, setel `OFFSITE_BACKUP_REQUIRED=true` (dan `BACKUP_ALERT_WEBHOOK`) agar backup yang tidak terkirim off-site langsung gagal dan memberi peringatan.
 
 ---
 

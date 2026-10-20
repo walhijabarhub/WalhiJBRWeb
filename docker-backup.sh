@@ -11,6 +11,12 @@
 #   OFFSITE_BACKUP_TARGET    rclone remote ("r2:walhi-backups") or s3://bucket/path
 #   BACKUP_ALERT_WEBHOOK     URL that receives a JSON POST when a backup fails
 #   BACKUP_RETENTION_DAYS    routine backups to keep (default 14)
+#   OFFSITE_BACKUP_REQUIRED  true = fail (and alert) when OFFSITE_BACKUP_TARGET is
+#                            empty. Default false: only warn. Enable it only after
+#                            the off-site target and its credentials work.
+#
+# Every backup gets a <name>.sha256 file next to it (also copied off-site), so a
+# restore can verify the archive before using it (docker-restore-test.sh).
 #
 # Exits non-zero on any failure so cron/deploy can react to it.
 # ─────────────────────────────────────────────────────────────
@@ -22,7 +28,7 @@ if [ -f "$APP_DIR/.env" ]; then
     while IFS='=' read -r key value; do
         value="${value%\"}"; value="${value#\"}"
         if [ -z "${!key:-}" ]; then export "$key=$value"; fi
-    done < <(grep -E '^(BACKUP_DIR|OFFSITE_BACKUP_TARGET|BACKUP_ALERT_WEBHOOK|BACKUP_RETENTION_DAYS)=' "$APP_DIR/.env" || true)
+    done < <(grep -E '^(BACKUP_DIR|OFFSITE_BACKUP_TARGET|BACKUP_ALERT_WEBHOOK|BACKUP_RETENTION_DAYS|OFFSITE_BACKUP_REQUIRED)=' "$APP_DIR/.env" || true)
 fi
 
 BACKUP_DIR="${BACKUP_DIR:-/var/backups/walhi}"
@@ -45,6 +51,17 @@ trap 'alert "Backup gagal pada baris $LINENO"' ERR
 
 umask 077
 mkdir -p "$BACKUP_DIR"
+
+# Refuse early, before any work, when off-site copies are mandatory but not configured.
+if [ "${OFFSITE_BACKUP_REQUIRED:-false}" = "true" ] && [ -z "${OFFSITE_BACKUP_TARGET:-}" ]; then
+    alert "OFFSITE_BACKUP_REQUIRED=true tetapi OFFSITE_BACKUP_TARGET kosong"
+    exit 1
+fi
+
+# <file>.sha256 in sha256sum format, with the bare file name so it verifies from any directory.
+write_checksum() {
+    (cd "$(dirname "$1")" && sha256sum "$(basename "$1")" > "$(basename "$1").sha256")
+}
 echo "📦 Backup ${PREFIX} — $TIMESTAMP → $BACKUP_DIR"
 
 # 1. Database (MySQL)
@@ -63,6 +80,7 @@ if ! gzip -dc "$DB_FILE" | tail -n 1 | grep -q "Dump completed"; then
     alert "Dump database tidak lengkap: $DB_FILE"
     exit 1
 fi
+write_checksum "$DB_FILE"
 echo "✅ Database: $DB_FILE ($(du -h "$DB_FILE" | cut -f1))"
 
 # 2. Uploaded files (storage/app: private documents + public uploads)
@@ -80,17 +98,20 @@ else
         alpine:3.22 tar -C /data -czf - . > "$FILES_FILE"
 fi
 gzip -t "$FILES_FILE"
+write_checksum "$FILES_FILE"
 echo "✅ File unggahan: $FILES_FILE ($(du -h "$FILES_FILE" | cut -f1))"
 
 # 3. Off-site copy (strongly recommended: a local-only backup dies with the server)
 if [ -n "${OFFSITE_BACKUP_TARGET:-}" ]; then
     echo "☁️  Mengunggah ke $OFFSITE_BACKUP_TARGET ..."
     if [[ "$OFFSITE_BACKUP_TARGET" == s3://* ]]; then
-        aws s3 cp "$DB_FILE" "$OFFSITE_BACKUP_TARGET/" --only-show-errors
-        aws s3 cp "$FILES_FILE" "$OFFSITE_BACKUP_TARGET/" --only-show-errors
+        for f in "$DB_FILE" "$DB_FILE.sha256" "$FILES_FILE" "$FILES_FILE.sha256"; do
+            aws s3 cp "$f" "$OFFSITE_BACKUP_TARGET/" --only-show-errors
+        done
     else
-        rclone copy "$DB_FILE" "$OFFSITE_BACKUP_TARGET"
-        rclone copy "$FILES_FILE" "$OFFSITE_BACKUP_TARGET"
+        for f in "$DB_FILE" "$DB_FILE.sha256" "$FILES_FILE" "$FILES_FILE.sha256"; do
+            rclone copy "$f" "$OFFSITE_BACKUP_TARGET"
+        done
     fi
     echo "✅ Salinan off-site selesai."
 else

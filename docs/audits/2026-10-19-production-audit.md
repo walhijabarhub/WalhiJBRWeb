@@ -36,7 +36,7 @@ Namun ada tiga celah nyata di jalur file/dokumen:
 | AUD-10 | Rendah | `npm audit`: 5 high / 2 moderate di tooling build (Tailwind 3) | open |
 | AUD-11 | Sedang | Redis 200 MB berbagi sesi/cache/antrean; risiko OOM | open (ops) |
 | AUD-12 | Rendah | Soft-delete konten tetap menghapus berkas lampirannya | open (keputusan desain) |
-| AUD-13 | Sedang | Backup: off-site opsional, tanpa uji restore, tanpa monitoring | open (ops) |
+| AUD-13 | Sedang | Backup: off-site opsional, tanpa uji restore, tanpa monitoring | sebagian: checksum + `docker-restore-test.sh` + `OFFSITE_BACKUP_REQUIRED` (default off); tujuan off-site belum dipilih |
 
 ### AUD-01 — Penghapusan berkas yang masih dipakai entri lain (Tinggi)
 - **Lokasi:** `app/Http/Controllers/Admin/ContentController.php` `deleteOldImage()` (dipanggil dari `update()` dan `destroy()`).
@@ -97,6 +97,8 @@ Redis: `maxmemory 200mb`, `volatile-lru`, AOF aktif, limit container 256 MB. Ses
 `destroy()` melakukan soft-delete pada baris, tetapi menghapus berkas lampiran secara permanen (kecuali dipakai entri lain, sejak AUD-01). Tidak ada UI restore, jadi dampaknya kecil. Bila restore akan disediakan, berkas sebaiknya baru dihapus saat *force delete*.
 
 ### AUD-13 — Backup & pemulihan (Sedang, open — operasional)
+**Update:** setiap backup kini punya `<berkas>.sha256`; `docker-restore-test.sh` menguji restore di container sementara tanpa jaringan dan memeriksa kelengkapan dokumen; `OFFSITE_BACKUP_REQUIRED` tersedia tetapi **belum diaktifkan** sampai tujuan off-site (R2/S3) dikonfigurasi dan uji restore lulus. Uji pertama pada backup produksi akan melaporkan 12 dokumen yang dirujuk database tetapi tidak ada (lihat temuan dokumen hilang).
+
 Yang sudah baik: `mysqldump --single-transaction` dengan verifikasi `Dump completed`; arsip `storage/app` (dokumen privat + unggahan); `umask 077`; alert webhook saat gagal; retensi 14/30 hari; backup pra-deploy wajib (deploy batal bila backup gagal); kredensial tidak dicetak.
 Kekurangan:
 - Off-site hanya **peringatan** bila `OFFSITE_BACKUP_TARGET` kosong. Backup bisa "berhasil" padahal hanya ada di VPS yang sama.

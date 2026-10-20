@@ -89,8 +89,9 @@ tail -n 50 /var/log/walhi_backup.log     # hasil cron harian
 Restore meminta konfirmasi `restore`, mengaktifkan maintenance mode, lalu mematikannya setelah selesai.
 
 - Snapshot sebelum setiap deploy bernama `walhi_predeploy_*`.
-- **Belum ada backup off-site** sampai `OFFSITE_BACKUP_TARGET` diisi. Bila VPS hilang, backup ikut hilang.
-- Uji restore minimal sebulan sekali di server/stack terpisah.
+- Setiap backup punya checksum `<berkas>.sha256`.
+- **Belum ada backup off-site** sampai `OFFSITE_BACKUP_TARGET` diisi. Bila VPS hilang, backup ikut hilang. Urutan aktivasi aman (R2/S3, lalu `OFFSITE_BACKUP_REQUIRED=true`): lihat [DEPLOYMENT.md](../DEPLOYMENT.md#mengaktifkan-backup-off-site-urutan-aman).
+- Uji restore minimal sebulan sekali, tanpa menyentuh situs: `./docker-restore-test.sh <mysql.sql.gz> <files.tar.gz>` (exit `2` = ada dokumen yang dirujuk database tetapi tidak ada di backup).
 
 ---
 
