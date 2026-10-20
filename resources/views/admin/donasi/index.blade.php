@@ -456,6 +456,9 @@
                         }
                     },
                     y: {
+                        // Donations are never negative; without data Chart.js would centre the axis on 0.
+                        min: 0,
+                        suggestedMax: 100000,
                         grid: {
                             color: '#eee',
                             lineWidth: 1
