@@ -47,27 +47,13 @@ class DocumentDownloadController extends Controller
             abort(404, 'Dokumen lokal tidak tersedia untuk diunduh melalui endpoint ini.');
         }
 
-        // 3. Prevent path traversal and resolve disk location
-        $cleanFilename = basename($rawPath);
-        if ($cleanFilename === '' || in_array($cleanFilename, ['.', '..'], true)) {
-            abort(404, 'Nama berkas dokumen tidak valid.');
-        }
-
-        $subDir = 'documents/';
-        if (str_contains($rawPath, 'uploads/')) {
-            $subDir = 'uploads/';
-        }
-        $relativePath = $subDir.$cleanFilename;
-
-        // Resolve storage disk: private storage first, fallback to public disk for legacy migration
-        $disk = null;
-        if (Storage::disk('local')->exists($relativePath)) {
-            $disk = 'local';
-        } elseif (Storage::disk('public')->exists($relativePath)) {
-            $disk = 'public';
-        } else {
+        // 3. Resolve the physical file (basename only, so no path traversal): private
+        //    disk first, then the legacy public disk. Same lookup as Content::$has_download.
+        $location = $content->documentFileLocation();
+        if ($location === null) {
             abort(404, 'Berkas dokumen fisik tidak ditemukan di server.');
         }
+        [$disk, $relativePath] = $location;
 
         // 4. Determine file extension strictly from physical file path
         $fileExt = strtolower(pathinfo($relativePath, PATHINFO_EXTENSION));

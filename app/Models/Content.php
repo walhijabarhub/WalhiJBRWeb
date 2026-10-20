@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class Content extends Model
@@ -266,6 +267,58 @@ class Content extends Model
         }
 
         return $this->image_url;
+    }
+
+    /**
+     * Locate the stored file behind a local attachment, the way the download endpoint
+     * serves it: documents/<name> (or uploads/<name>) on the private disk first, then on
+     * the legacy public disk. Null for external URLs and for files that do not exist.
+     *
+     * @return array{0: string, 1: string}|null [disk, relative path]
+     */
+    public function documentFileLocation(): ?array
+    {
+        $raw = (string) $this->getRawOriginal('image_url');
+        if ($raw === '' || preg_match('#^(https?:)?//#i', $raw)) {
+            return null;
+        }
+
+        $name = basename($raw);
+        if ($name === '' || in_array($name, ['.', '..'], true)) {
+            return null;
+        }
+
+        $path = (str_contains($raw, 'uploads/') ? 'uploads/' : 'documents/').$name;
+        foreach (['local', 'public'] as $disk) {
+            if (Storage::disk($disk)->exists($path)) {
+                return [$disk, $path];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Whether a download button can be offered: an external link, a display image, or
+     * a local document whose file is actually on disk. Lets views show "Dokumen belum
+     * tersedia" instead of a link that ends in 404.
+     */
+    public function getHasDownloadAttribute(): bool
+    {
+        $raw = (string) $this->getRawOriginal('image_url');
+        if ($raw === '') {
+            return false;
+        }
+
+        if (str_starts_with($raw, 'http://') || str_starts_with($raw, 'https://')) {
+            return $this->download_url !== null;
+        }
+
+        if (! $this->isDocument()) {
+            return $this->image_url !== null;
+        }
+
+        return $this->documentFileLocation() !== null;
     }
 
     /**

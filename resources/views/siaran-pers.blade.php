@@ -144,12 +144,20 @@
                                             </a>
 
                                             @if($isPdf)
+                                                @if($item->has_download)
                                                 <a href="{{ $item->download_url ?: $item->image_url }}" target="_blank"
                                                    style="width: 100%; height: 40px; background: white; color: #1D1D1D; border: 2px solid #1D1D1D; font-family: Aspekta, sans-serif; font-weight: 700; font-size: 12px; letter-spacing: 0.35px; text-transform: uppercase; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; text-decoration: none; box-sizing: border-box; transition: background 0.2s;"
                                                    class="hover-action-light-btn">
                                                     <i data-lucide="download" style="width: 14px; height: 14px;"></i>
                                                     Unduh Lampiran PDF
                                                 </a>
+                                                @else
+                                                <button disabled
+                                                   style="width: 100%; height: 40px; background: white; color: #aaa; border: 2px solid #ddd; font-family: Aspekta, sans-serif; font-weight: 700; font-size: 12px; letter-spacing: 0.35px; text-transform: uppercase; cursor: not-allowed; display: inline-flex; align-items: center; justify-content: center; gap: 6px; box-sizing: border-box; opacity: 0.6;">
+                                                    <i data-lucide="download" style="width: 14px; height: 14px; color: #aaa;"></i>
+                                                    Dokumen belum tersedia
+                                                </button>
+                                                @endif
                                             @endif
                                         </div>
                                     </div>

@@ -16,7 +16,7 @@ This document is the **primary entrypoint and operating manual** for modern AI c
 | :--- | :--- | :--- | :--- |
 | **Runtime** | PHP | `^8.3` (Production image: `8.4-fpm-alpine`) | Typed parameters, return types, enums. |
 | **Framework** | Laravel | `^13.8` (Locked: `13.35.0`) | Modern callable `bootstrap/app.php`. |
-| **Testing** | PHPUnit | `^12.5.12` | 227 automated tests (1009 assertions). |
+| **Testing** | PHPUnit | `^12.5.12` | 234 automated tests (1051 assertions). |
 | **Frontend Build** | Vite | `^8.0.0` (Installed: `8.1.3`) | `laravel-vite-plugin ^3.1`. |
 | **Styling** | Tailwind CSS | `3.4.19` | PostCSS pipeline, Neo-Brutalist design tokens. |
 | **Reactivity** | Alpine.js **CSP build** | `@alpinejs/csp ^3.15.12` | No `eval`; inline handlers replaced by `resources/js/csp-actions.js`. |
@@ -72,7 +72,7 @@ WalhiJBRWeb/
 │   └── console.php                # Schedule (reconcile 15 min, flush-views 5 min, prune monthly)
 ├── storage/app/private/documents/ # SEC-008 private documents
 ├── storage/app/public/uploads/    # Public media
-├── tests/Feature/                 # 227 tests; tests/TestCase.php disables Vite
+├── tests/Feature/                 # 234 tests; tests/TestCase.php disables Vite
 ├── deploy.sh                      # Production deploy with migrate-before-swap, health check, rollback
 ├── docker-backup.sh / docker-restore.sh
 └── docker-compose.prod.yml        # app, worker, scheduler, db, redis, web
@@ -215,7 +215,7 @@ Whenever making changes, an AI agent MUST uphold:
 
 ## 6. Testing Guide & Verification Protocol
 
-The application contains **227 automated tests (1009 assertions)**, all passing. CI runs them on SQLite and MySQL 8.0.
+The application contains **234 automated tests (1051 assertions)**, all passing. CI runs them on SQLite and MySQL 8.0.
 
 ### Running Tests:
 ```bash
@@ -250,6 +250,7 @@ php artisan test --filter=TurnstileCaptchaTest
 - `tests/Feature/LoggingPerformanceDataTest.php`: audit_logs, FULLTEXT search, caching, view buffer, double opt-in, data retention.
 - `tests/Feature/TurnstileCaptchaTest.php`, `tests/Feature/TrustedProxyTest.php`, `tests/Feature/QaAuditRegressionTest.php`.
 - `tests/Feature/StorageIntegrityAuditTest.php`: shared-file deletion guard, private document references, nginx `/storage/documents/` block, safe legacy migration, sensitive draft preview.
+- `tests/Feature/MissingDocumentDisplayTest.php`: a document whose file is missing shows a disabled "Dokumen belum tersedia" button, never a link that ends in 404.
 
 Full catalogue and conventions (fakes for Midtrans/Turnstile, `withoutVite()`): [docs/testing.md](docs/testing.md).
 
@@ -293,7 +294,7 @@ An AI coding agent must NOT declare a task completed until all criteria are met:
 - [ ] **Authorization Checked:** Action is explicitly guarded by Policies or RBAC middleware.
 - [ ] **Security Intact:** No SQLi, XSS, CSRF bypass, open redirect, or path traversal vectors introduced.
 - [ ] **Storage Discipline:** Documents go to private storage; public media goes to public storage.
-- [ ] **Automated Tests:** Relevant feature tests added or updated, and all 227+ tests pass (`php artisan test`).
+- [ ] **Automated Tests:** Relevant feature tests added or updated, and all 234+ tests pass (`php artisan test`).
 - [ ] **Zero Secrets:** No API keys, passwords, or tokens hardcoded in source code or committed files.
 - [ ] **Documentation Synchronized:** If business rules, endpoints, or configurations change, documentation is updated immediately.
 - [ ] **Clean Diff:** `git diff` reviewed and verified free of unintentional edits.
