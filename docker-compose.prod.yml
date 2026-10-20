@@ -210,7 +210,10 @@ services:
       resources:
         limits:
           cpus: '0.25'
-          memory: 256M
+          # maxmemory (200 MB) is the data budget; the rest is headroom for the AOF
+          # rewrite fork (copy-on-write) and allocator overhead, so the container is
+          # not OOM-killed while rewriting (that would drop sessions, cache and queue).
+          memory: 512M
 
   # ── 6. Nginx (edge web server, TLS termination) ──
   web:
