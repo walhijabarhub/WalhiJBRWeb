@@ -52,7 +52,7 @@ class CreateAdminUser extends Command
 
         $email = trim($emailInput);
         if (! str_contains($email, '@')) {
-            $email = Str::lower($email) . '@walhijabar.or.id';
+            $email = Str::lower($email).'@walhijabar.or.id';
         }
 
         $role = $this->option('role');
@@ -81,9 +81,10 @@ class CreateAdminUser extends Command
 
             if ($validator->fails()) {
                 foreach ($validator->errors()->all() as $error) {
-                    $this->error('  • ' . $error);
+                    $this->error('  • '.$error);
                 }
                 $this->newLine();
+
                 continue;
             }
 
@@ -102,8 +103,8 @@ class CreateAdminUser extends Command
         $actionText = $isNew ? 'berhasil dibuat' : 'berhasil diperbarui';
         $this->newLine();
         $this->info("✅ Akun {$role} {$name} ({$email}) {$actionText}!");
-        $this->line("   Login URL : " . route('login'));
-        $this->line("   Username  : " . explode('@', $email)[0]);
+        $this->line('   Login URL : '.route('login'));
+        $this->line('   Username  : '.explode('@', $email)[0]);
         $this->line("   Email     : {$email}");
         $this->newLine();
 

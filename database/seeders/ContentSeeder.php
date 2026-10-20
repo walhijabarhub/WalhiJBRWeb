@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\Content;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Storage;
 
 class ContentSeeder extends Seeder
 {
@@ -129,7 +130,7 @@ class ContentSeeder extends Seeder
             [
                 'title' => 'Potret Kelam Investasi Energi Kotor',
                 'slug' => 'potret-kelam-investasi-energi-kotor',
-                'body' => "Infografis hasil investigasi WALHI Jawa Barat mengenai potret kelam investasi energi kotor di wilayah pesisir Jawa Barat, dampak kesehatan akibat emisi cerobong PLTU, serta dokumentasi perlawanan komunitas lokal dalam mempertahankan ruang hidup dan lingkungan sehat.",
+                'body' => 'Infografis hasil investigasi WALHI Jawa Barat mengenai potret kelam investasi energi kotor di wilayah pesisir Jawa Barat, dampak kesehatan akibat emisi cerobong PLTU, serta dokumentasi perlawanan komunitas lokal dalam mempertahankan ruang hidup dan lingkungan sehat.',
                 'tags' => 'infografis, energi kotor, investigasi',
                 'status' => 'published',
                 'image_url' => 'documents/potret-kelam-investasi-energi-kotor.pdf',
@@ -295,7 +296,7 @@ class ContentSeeder extends Seeder
             [
                 'title' => 'Potret Kelam Investasi Energi Kotor',
                 'slug' => 'potret-kelam-investasi-energi-kotor',
-                'body' => "Infografis hasil investigasi WALHI Jawa Barat mengenai potret kelam investasi energi kotor di wilayah pesisir Jawa Barat, dampak kesehatan akibat emisi cerobong PLTU, serta dokumentasi perlawanan komunitas lokal dalam mempertahankan ruang hidup dan lingkungan sehat.",
+                'body' => 'Infografis hasil investigasi WALHI Jawa Barat mengenai potret kelam investasi energi kotor di wilayah pesisir Jawa Barat, dampak kesehatan akibat emisi cerobong PLTU, serta dokumentasi perlawanan komunitas lokal dalam mempertahankan ruang hidup dan lingkungan sehat.',
                 'tags' => 'infografis, energi kotor, investigasi',
                 'status' => 'published',
                 'image_url' => 'documents/potret-kelam-investasi-energi-kotor.pdf',
@@ -310,15 +311,14 @@ class ContentSeeder extends Seeder
                 $item
             );
 
-            if (!empty($item['image_url']) && str_starts_with($item['image_url'], 'documents/')) {
-                if (!\Illuminate\Support\Facades\Storage::disk('local')->exists($item['image_url'])) {
-                    \Illuminate\Support\Facades\Storage::disk('local')->put(
+            if (! empty($item['image_url']) && str_starts_with($item['image_url'], 'documents/')) {
+                if (! Storage::disk('local')->exists($item['image_url'])) {
+                    Storage::disk('local')->put(
                         $item['image_url'],
-                        "%PDF-1.4\n% WALHI Jabar Official Document: " . $item['title'] . "\n%%EOF"
+                        "%PDF-1.4\n% WALHI Jabar Official Document: ".$item['title']."\n%%EOF"
                     );
                 }
             }
         }
     }
 }
-

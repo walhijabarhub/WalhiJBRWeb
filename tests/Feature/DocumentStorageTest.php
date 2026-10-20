@@ -15,7 +15,9 @@ class DocumentStorageTest extends TestCase
     use RefreshDatabase;
 
     private User $admin;
+
     private User $editor;
+
     private User $user;
 
     protected function setUp(): void

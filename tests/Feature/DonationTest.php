@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Content;
 use App\Models\Donation;
+use App\Services\Donation\DonationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -106,7 +107,7 @@ class DonationTest extends TestCase
      */
     public function test_donation_state_transitions_and_webhook_replay_security(): void
     {
-        $donationService = app(\App\Services\Donation\DonationService::class);
+        $donationService = app(DonationService::class);
 
         // 1. Pending -> Success (Allowed)
         $d1 = Donation::create([

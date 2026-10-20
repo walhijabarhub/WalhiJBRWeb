@@ -31,8 +31,8 @@ Namun ada tiga celah nyata di jalur file/dokumen:
 | AUD-05 | Rendah | Editor bisa melihat draf kategori sensitif di halaman publik | fixed |
 | AUD-06 | Rendah | Path PDF dipakai sebagai og:image / twitter:image / JSON-LD | fixed |
 | AUD-07 | Rendah | Workflow deploy bisa dipicu dari branch selain `production` | mitigated |
-| AUD-08 | Sedang | Gate deploy hanya test SQLite; test MySQL/Pint bukan prasyarat | fixed (gate memanggil ci.yml + security.yml); Pint tetap open (AUD-09) |
-| AUD-09 | Rendah | `pint --test` gagal pada 10 file lama; CI tidak menegakkannya | open |
+| AUD-08 | Sedang | Gate deploy hanya test SQLite; test MySQL/Pint bukan prasyarat | fixed (gate memanggil ci.yml + security.yml); Pint juga ditegakkan (AUD-09) |
+| AUD-09 | Rendah | `pint --test` gagal pada 10 file lama; CI tidak menegakkannya | fixed (semua file lulus; `pint --test` di CI) |
 | AUD-10 | Rendah | `npm audit`: 5 high / 2 moderate di tooling build (Tailwind 3) | open |
 | AUD-11 | Sedang | Redis 200 MB berbagi sesi/cache/antrean; risiko OOM | open (ops) |
 | AUD-12 | Rendah | Soft-delete konten tetap menghapus berkas lampirannya | open (keputusan desain) |
@@ -86,7 +86,9 @@ Namun ada tiga celah nyata di jalur file/dokumen:
 
 `deploy.yml` hanya menjalankan test SQLite + `composer audit`. Test MySQL 8, build frontend, dan secret scan berjalan di workflow terpisah secara paralel dan **tidak memblokir deploy**. Rekomendasi: tambahkan job MySQL (salin dari `ci.yml`) sebagai `needs` untuk `build-image`, atau wajibkan status check lewat branch protection pada `production`. Tidak diubah tanpa persetujuan pemilik.
 
-### AUD-09 — Format kode (Rendah, open)
+### AUD-09 — Format kode (Rendah, fixed)
+**Update:** seluruh file dirapikan dengan Pint dan `vendor/bin/pint --test` kini menjadi langkah di job `PHP Tests (SQLite)`, sehingga juga menjadi bagian gate deploy.
+
 `vendor/bin/pint --test` gagal pada 10 file yang tidak disentuh audit ini (mis. `routes/web.php`, `ContentSeeder.php`). Dua file yang disentuh (`ContentController`, `PublicContentController`) sudah dirapikan. Rekomendasi: PR terpisah `vendor/bin/pint` + langkah `pint --test` di CI.
 
 ### AUD-10 — Kerentanan npm di tooling build (Rendah, open)
