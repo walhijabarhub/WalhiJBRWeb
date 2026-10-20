@@ -2,6 +2,7 @@
 
 namespace App\Services\Content;
 
+use App\Enums\ContentCategory;
 use App\Models\Content;
 use Closure;
 use DateTimeInterface;
@@ -21,6 +22,12 @@ class ContentCache
 
     public const REGULASI_COUNTS = 'content:regulasi-counts:v1';
 
+    /** Latest published news for the detail page sidebar (no body column). */
+    public const SIDEBAR_NEWS = 'content:sidebar-news:v1';
+
+    /** Pool name for ContentCache::publishedIds() covering all news categories. */
+    public const NEWS_POOL = 'news';
+
     /** Keys owned by the global view composers in AppServiceProvider. */
     private const GLOBAL_KEYS = ['global_contact', 'global_campaign'];
 
@@ -37,6 +44,23 @@ class ContentCache
         $cached = Cache::remember($key, $ttl, fn () => self::dehydrate($loader()));
 
         return self::hydrate($cached);
+    }
+
+    /**
+     * Ids of published content in a pool (a category value or NEWS_POOL), newest
+     * first. Used to pick random related items without ORDER BY RAND().
+     *
+     * @param  Closure(): array<int, int|string>  $loader
+     * @return array<int, int>
+     */
+    public static function publishedIds(string $pool, Closure $loader): array
+    {
+        return Cache::remember(self::idsKey($pool), now()->addMinutes(10), fn () => array_map('intval', $loader()));
+    }
+
+    private static function idsKey(string $pool): string
+    {
+        return "content:ids:{$pool}:v1";
     }
 
     private static function dehydrate(mixed $value): mixed
@@ -68,8 +92,12 @@ class ContentCache
 
     public static function flush(): void
     {
-        foreach ([self::HOME, self::SITEMAP, self::REGULASI_COUNTS, ...self::GLOBAL_KEYS] as $key) {
+        foreach ([self::HOME, self::SITEMAP, self::REGULASI_COUNTS, self::SIDEBAR_NEWS, ...self::GLOBAL_KEYS] as $key) {
             Cache::forget($key);
+        }
+
+        foreach ([self::NEWS_POOL, ...array_map(fn (ContentCategory $c) => $c->value, ContentCategory::cases())] as $pool) {
+            Cache::forget(self::idsKey($pool));
         }
     }
 }
