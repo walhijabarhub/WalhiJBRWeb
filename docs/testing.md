@@ -69,7 +69,7 @@ docker rm -f walhi-test-mysql
 | `tests/Feature/StorageIntegrityAuditTest.php` | Audit Oktober 2026: berkas bersama tidak ikut terhapus, `image_url` tidak bisa menunjuk dokumen privat lain, nginx memblokir `/storage/documents/`, migrasi dokumen legacy aman (dry-run, checksum), pratinjau draf kategori sensitif. | 13 |
 | `tests/Feature/MissingDocumentDisplayTest.php` | Dokumen yang berkasnya tidak ada di disk menampilkan tombol nonaktif "Dokumen belum tersedia" (daftar & detail), bukan tautan 404; berkas yang ada dan tautan eksternal tetap aktif; PDF tidak dirender sebagai gambar. | 7 |
 | `tests/Feature/Auth/*` (lainnya) | Login `/portal-jabar`, reset & konfirmasi password, update password, verifikasi email, registrasi nonaktif. | 21 |
-| `tests/Feature/ExampleTest.php`, `tests/Unit/ExampleTest.php` | Smoke test. | 2 |
+| `tests/Feature/PublicPagesSmokeTest.php` | Smoke test: semua halaman publik (termasuk sitemap & robots) tampil 200 pada database kosong; `favicon.ico` tidak kosong. | 17 |
 
 ---
 

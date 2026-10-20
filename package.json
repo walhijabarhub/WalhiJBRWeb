@@ -11,7 +11,6 @@
     "devDependencies": {
         "@alpinejs/csp": "^3.15.12",
         "@tailwindcss/forms": "^0.5.2",
-        "@tailwindcss/vite": "^4.0.0",
         "autoprefixer": "^10.4.2",
         "concurrently": "^9.0.1",
         "laravel-vite-plugin": "^3.1",
