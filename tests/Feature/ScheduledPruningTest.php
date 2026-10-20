@@ -34,5 +34,18 @@ class ScheduledPruningTest extends TestCase
 
         $this->assertDatabaseMissing('audit_logs', ['id' => $old->id]);
         $this->assertDatabaseHas('audit_logs', ['id' => $recent->id]);
+
+        // The pruning itself is recorded in the audit trail.
+        $record = AuditLog::where('action', 'AUDIT_LOGS_PRUNED')->sole();
+        $this->assertSame(['deleted' => 1, 'retention_days' => 30], $record->details);
+    }
+
+    public function test_nothing_is_recorded_when_no_audit_log_expired(): void
+    {
+        AuditLog::create(['action' => 'RECENT', 'model' => 'Content']);
+
+        $this->artisan('model:prune', ['--model' => [AuditLog::class]])->assertSuccessful();
+
+        $this->assertSame(0, AuditLog::where('action', 'AUDIT_LOGS_PRUNED')->count());
     }
 }
