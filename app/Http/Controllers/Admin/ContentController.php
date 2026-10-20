@@ -11,10 +11,8 @@ use App\Models\Donation;
 use App\Services\AuditLogService;
 use App\Services\Content\HtmlSanitizer;
 use App\Services\Content\SlugService;
-use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -107,12 +105,15 @@ class ContentController extends Controller
         // Donation-specific dashboard
         if ($category === 'donasi') {
             $recentDonations = Donation::orderBy('created_at', 'desc')->take(10)->get();
-            $totalAmount = Donation::where('status', 'success')->sum('amount');
-            $uniqueDonors = Donation::where('status', 'success')->distinct('donor_email')->count('donor_email');
-            $avgDonation = Donation::where('status', 'success')->avg('amount') ?: 0;
+            $donationTotals = Donation::successful()->toBase()
+                ->selectRaw('COALESCE(SUM(amount), 0) AS amount, COUNT(DISTINCT donor_email) AS donors, COALESCE(AVG(amount), 0) AS average')
+                ->first();
+            $totalAmount = (int) $donationTotals->amount;
+            $uniqueDonors = (int) $donationTotals->donors;
+            $avgDonation = (float) $donationTotals->average;
 
             // Monthly trend — last 12 months (real data only)
-            [$chartLabels, $chartData] = $this->buildMonthlyChart();
+            [$chartLabels, $chartData] = Donation::monthlySuccessChart();
 
             return view('admin.donasi.index', compact(
                 'items', 'config', 'counts', 'category',
@@ -322,39 +323,6 @@ class ContentController extends Controller
     // ──────────────────────────────────────────────────────────────────────────
     // Private Helpers
     // ──────────────────────────────────────────────────────────────────────────
-
-    /**
-     * Build monthly donation chart data (real data only — single consolidated query).
-     * Returns [$labels, $data] for the last 12 months.
-     *
-     * @return array{0: array<string>, 1: array<int>}
-     */
-    private function buildMonthlyChart(): array
-    {
-        $labels = [];
-        $data = [];
-        $startDate = Carbon::now()->startOfMonth()->subMonths(11);
-
-        $driver = DB::getDriverName();
-        $dateExpr = $driver === 'sqlite'
-            ? "strftime('%Y-%m', created_at) as period_key"
-            : "DATE_FORMAT(created_at, '%Y-%m') as period_key";
-
-        $monthlyTotals = Donation::where('status', 'success')
-            ->where('created_at', '>=', $startDate)
-            ->selectRaw("{$dateExpr}, SUM(amount) as total")
-            ->groupBy('period_key')
-            ->pluck('total', 'period_key');
-
-        for ($i = 11; $i >= 0; $i--) {
-            $month = Carbon::now()->startOfMonth()->subMonths($i);
-            $key = $month->format('Y-m');
-            $labels[] = $month->translatedFormat("M 'y");
-            $data[] = (int) ($monthlyTotals[$key] ?? 0);
-        }
-
-        return [$labels, $data];
-    }
 
     /**
      * Encode category-specific tags from the request.
