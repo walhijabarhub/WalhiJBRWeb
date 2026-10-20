@@ -31,7 +31,7 @@ Namun ada tiga celah nyata di jalur file/dokumen:
 | AUD-05 | Rendah | Editor bisa melihat draf kategori sensitif di halaman publik | fixed |
 | AUD-06 | Rendah | Path PDF dipakai sebagai og:image / twitter:image / JSON-LD | fixed |
 | AUD-07 | Rendah | Workflow deploy bisa dipicu dari branch selain `production` | mitigated |
-| AUD-08 | Sedang | Gate deploy hanya test SQLite; test MySQL/Pint bukan prasyarat | open |
+| AUD-08 | Sedang | Gate deploy hanya test SQLite; test MySQL/Pint bukan prasyarat | fixed (gate memanggil ci.yml + security.yml); Pint tetap open (AUD-09) |
 | AUD-09 | Rendah | `pint --test` gagal pada 10 file lama; CI tidak menegakkannya | open |
 | AUD-10 | Rendah | `npm audit`: 5 high / 2 moderate di tooling build (Tailwind 3) | open |
 | AUD-11 | Sedang | Redis 200 MB berbagi sesi/cache/antrean; risiko OOM | open (ops) |
@@ -81,7 +81,9 @@ Namun ada tiga celah nyata di jalur file/dokumen:
 - **Perbaikan:** job gate punya `if: github.ref == 'refs/heads/production'`; job build dan deploy ikut terlewati.
 - **Rekomendasi pemilik:** di Settings → Environments → `production`, batasi *deployment branches* ke `production` dan aktifkan *required reviewers*.
 
-### AUD-08 — Gate deploy lebih lemah dari CI (Sedang, open)
+### AUD-08 — Gate deploy lebih lemah dari CI (Sedang, fixed)
+**Update:** `deploy.yml` kini memanggil `ci.yml` dan `security.yml` sebagai reusable workflow; `build-image` membutuhkan keduanya lulus. Branch protection tetap harus diaktifkan owner (lihat DEPLOYMENT.md).
+
 `deploy.yml` hanya menjalankan test SQLite + `composer audit`. Test MySQL 8, build frontend, dan secret scan berjalan di workflow terpisah secara paralel dan **tidak memblokir deploy**. Rekomendasi: tambahkan job MySQL (salin dari `ci.yml`) sebagai `needs` untuk `build-image`, atau wajibkan status check lewat branch protection pada `production`. Tidak diubah tanpa persetujuan pemilik.
 
 ### AUD-09 — Format kode (Rendah, open)

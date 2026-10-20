@@ -3,11 +3,13 @@ name: Security Audit
 on:
   schedule:
     - cron: '0 0 * * 1' # Setiap hari Senin jam 00:00 UTC
+  # Pushes to production run this workflow through deploy.yml (workflow_call), as the
+  # gate before the image is built, so it is not triggered a second time here.
   push:
     branches:
       - main
       - prod
-      - production
+  workflow_call:
   pull_request:
     branches:
       - main
