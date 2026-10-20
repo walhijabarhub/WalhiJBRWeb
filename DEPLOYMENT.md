@@ -217,9 +217,9 @@ Container produksi dibatasi secara optimal (*resource limits*) untuk memaksimalk
 - **`walhi_prod_worker` (queue worker)**: Limit **384 MB**
 - **`walhi_prod_scheduler` (schedule:work)**: Limit **256 MB**
 - **`walhi_prod_db` (MySQL 8.0, buffer pool 1.5 GB)**: Limit **2.560 MB** (Reservasi: 1.024 MB)
-- **`walhi_prod_redis`**: Limit **256 MB** (`maxmemory` 200 MB)
+- **`walhi_prod_redis`**: Limit **512 MB** (`maxmemory` 200 MB untuk data; sisanya ruang untuk *fork* saat rewrite AOF). Pantau dengan `docker exec walhi_prod_redis sh -c 'REDISCLI_AUTH=$REDIS_PASSWORD redis-cli INFO memory'` (`used_memory_human`, `evicted_keys`).
 - **`walhi_prod_nginx`**: Limit **256 MB**
-- **Headroom OS, Page Cache & Linux Buffers**: **~2.2 GB** + Swap
+- **Headroom OS, Page Cache & Linux Buffers**: **~1.9 GB** + Swap (total limit container ≈ 6,0 GB)
 
 ### Healthcheck & Pemantauan
 - `docker compose -f docker-compose.prod.yml ps` menampilkan status `healthy` tiap container (PHP-FPM via `/ping`, nginx via `/nginx-health`, MySQL, Redis).

@@ -34,7 +34,7 @@ Namun ada tiga celah nyata di jalur file/dokumen:
 | AUD-08 | Sedang | Gate deploy hanya test SQLite; test MySQL/Pint bukan prasyarat | fixed (gate memanggil ci.yml + security.yml); Pint juga ditegakkan (AUD-09) |
 | AUD-09 | Rendah | `pint --test` gagal pada 10 file lama; CI tidak menegakkannya | fixed (semua file lulus; `pint --test` di CI) |
 | AUD-10 | Rendah | `npm audit`: 5 high / 2 moderate di tooling build (Tailwind 3) | open |
-| AUD-11 | Sedang | Redis 200 MB berbagi sesi/cache/antrean; risiko OOM | open (ops) |
+| AUD-11 | Sedang | Redis 200 MB berbagi sesi/cache/antrean; risiko OOM | mitigated (limit container 512 MB; data tetap `maxmemory` 200 MB) |
 | AUD-12 | Rendah | Soft-delete konten tetap menghapus berkas lampirannya | open (keputusan desain) |
 | AUD-13 | Sedang | Backup: off-site opsional, tanpa uji restore, tanpa monitoring | sebagian: checksum + `docker-restore-test.sh` + `OFFSITE_BACKUP_REQUIRED` (default off); tujuan off-site belum dipilih |
 
@@ -94,7 +94,9 @@ Namun ada tiga celah nyata di jalur file/dokumen:
 ### AUD-10 — Kerentanan npm di tooling build (Rendah, open)
 `npm audit --omit=dev`: 0 kerentanan. `npm audit` penuh: 5 high, 2 moderate di `postcss-selector-parser`/`postcss-nested` (via Tailwind 3). Hanya dipakai saat build; tidak masuk image runtime. Perbaikan butuh upgrade Tailwind 4 (breaking; PR Dependabot sudah ada) — perlu pengujian visual terpisah.
 
-### AUD-11 — Kapasitas Redis (Sedang, open)
+### AUD-11 — Kapasitas Redis (Sedang, mitigated)
+**Update:** limit container Redis dinaikkan ke 512 MB, sehingga *fork* saat rewrite AOF tidak memicu OOM-kill. `maxmemory` 200 MB dan `volatile-lru` tidak berubah (job antrean tidak pernah di-evict). Tetap pantau `INFO memory`.
+
 Redis: `maxmemory 200mb`, `volatile-lru`, AOF aktif, limit container 256 MB. Sesi, cache, rate limiter, dan antrean berbagi instans ini. Kunci tanpa TTL (job antrean, cache `forever`) tidak bisa di-evict, sehingga saat penuh Redis menolak tulis (login dan antrean gagal). Rewrite AOF (fork) juga bisa melewati limit cgroup 256 MB sehingga container di-OOM-kill. Rekomendasi: pantau `INFO memory`; naikkan limit container ke ±384 MB atau turunkan `maxmemory`.
 
 ### AUD-12 — Soft-delete menghapus berkas (Rendah, open)
