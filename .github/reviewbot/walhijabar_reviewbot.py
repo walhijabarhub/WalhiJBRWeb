@@ -329,6 +329,8 @@ def render(findings, files, server, repo, head):
         verdict = f"**Belum siap merge** — {counts[BLOCKER]} blocker harus diperbaiki."
     elif counts[WARNING]:
         verdict = "**Boleh lanjut setelah peringatan ditinjau.**"
+    elif counts[INFO]:
+        verdict = f"**Tidak ada blocker atau peringatan.** ✅ Ada {counts[INFO]} catatan untuk ditinjau reviewer."
     else:
         verdict = "**Tidak ada temuan pada aturan proyek.** ✅"
     lines += [
