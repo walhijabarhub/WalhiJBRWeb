@@ -6,7 +6,6 @@ use App\Enums\ContentCategory;
 use App\Models\Content;
 use App\Services\Content\ContentCache;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 
 /**
  * Handles static-ish public pages that were previously inline closures

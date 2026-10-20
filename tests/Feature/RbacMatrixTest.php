@@ -13,7 +13,9 @@ class RbacMatrixTest extends TestCase
     use RefreshDatabase;
 
     private User $admin;
+
     private User $editor;
+
     private User $subscriber;
 
     protected function setUp(): void

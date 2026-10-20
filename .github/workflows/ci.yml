@@ -47,6 +47,9 @@ jobs:
       - name: Install Composer Dependencies
         run: composer install --prefer-dist --no-interaction --no-progress
 
+      - name: Code style (Laravel Pint)
+        run: vendor/bin/pint --test
+
       - name: Setup Application Key
         run: |
           cp .env.example .env

@@ -70,7 +70,7 @@ class AdminController extends Controller
             $activities->push([
                 'type' => 'donation',
                 'title' => 'Donasi Masuk',
-                'detail' => 'Rp ' . number_format($donation->amount, 0, ',', '.') . ' dari ' . ($donation->donor_name ?: 'Anonim') . ($donation->status !== 'success' ? ' (' . ucfirst($donation->status) . ')' : ''),
+                'detail' => 'Rp '.number_format($donation->amount, 0, ',', '.').' dari '.($donation->donor_name ?: 'Anonim').($donation->status !== 'success' ? ' ('.ucfirst($donation->status).')' : ''),
                 'icon' => 'heart',
                 'bg' => 'bg-[#eaf4ee]',
                 'color' => 'text-[#256D4A]',
@@ -83,11 +83,11 @@ class AdminController extends Controller
         // 2. Recent Comments
         $comments = Comment::with('content')->latest()->take(10)->get();
         foreach ($comments as $comment) {
-            $contentTitle = $comment->content ? ' di "' . Str::limit($comment->content->title, 25) . '"' : '';
+            $contentTitle = $comment->content ? ' di "'.Str::limit($comment->content->title, 25).'"' : '';
             $activities->push([
                 'type' => 'comment',
                 'title' => 'Komentar Baru',
-                'detail' => '"' . Str::limit($comment->body, 30) . '" oleh ' . $comment->author_name . $contentTitle,
+                'detail' => '"'.Str::limit($comment->body, 30).'" oleh '.$comment->author_name.$contentTitle,
                 'icon' => 'message-square',
                 'bg' => 'bg-[#f0f5f0]',
                 'color' => 'text-[#5C8D59]',
@@ -104,7 +104,7 @@ class AdminController extends Controller
             $activities->push([
                 'type' => 'content',
                 'title' => "Publikasi: {$catName}",
-                'detail' => Str::limit($content->title, 38) . ' oleh ' . ($content->author ?: 'WALHI Jabar'),
+                'detail' => Str::limit($content->title, 38).' oleh '.($content->author ?: 'WALHI Jabar'),
                 'icon' => 'file-text',
                 'bg' => 'bg-[#f4faf6]',
                 'color' => 'text-[#256D4A]',

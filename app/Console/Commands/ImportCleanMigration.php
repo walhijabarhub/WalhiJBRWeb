@@ -4,7 +4,6 @@ namespace App\Console\Commands;
 
 use App\Models\Content;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class ImportCleanMigration extends Command
@@ -56,10 +55,10 @@ class ImportCleanMigration extends Command
 
         // Jika opsi truncate dipilih, bersihkan kategori editorial namun pertahankan data struktural website (kontak, statistik, isu-kritis)
         if ($truncate) {
-            $this->warn("Membersihkan artikel publikasi editorial lama...");
+            $this->warn('Membersihkan artikel publikasi editorial lama...');
             $editorialCategories = ['blog', 'siaran-pers', 'infografis', 'kertas-posisi', 'catatan-kritis', 'laporan-tahunan'];
             Content::whereIn('category', $editorialCategories)->forceDelete();
-            $this->info("Kategori editorial lama berhasil dibersihkan (kontak, statistik, dan tata letak struktural tetap aman).");
+            $this->info('Kategori editorial lama berhasil dibersihkan (kontak, statistik, dan tata letak struktural tetap aman).');
         }
 
         $this->line('Memulai proses penyimpanan ke database...');
@@ -76,6 +75,7 @@ class ImportCleanMigration extends Command
                 if (empty($rawTitle)) {
                     $failed++;
                     $bar->advance();
+
                     continue;
                 }
 
@@ -85,7 +85,7 @@ class ImportCleanMigration extends Command
                 $counter = 1;
 
                 while (Content::where('slug', $slug)->exists()) {
-                    $slug = $baseSlug . '-' . $counter;
+                    $slug = $baseSlug.'-'.$counter;
                     $counter++;
                 }
 
@@ -109,7 +109,7 @@ class ImportCleanMigration extends Command
                 $categoryCounts[$category] = ($categoryCounts[$category] ?? 0) + 1;
             } catch (\Exception $e) {
                 $failed++;
-                $this->error("\nGagal mengimpor: {$title} - " . $e->getMessage());
+                $this->error("\nGagal mengimpor: {$title} - ".$e->getMessage());
             }
 
             $bar->advance();
@@ -118,7 +118,7 @@ class ImportCleanMigration extends Command
         $bar->finish();
         $this->newLine(2);
 
-        $this->info("=== PROSES IMPOR SELESAI ===");
+        $this->info('=== PROSES IMPOR SELESAI ===');
         $this->info("Berhasil diimpor : {$imported} artikel");
         if ($failed > 0) {
             $this->warn("Gagal diimpor    : {$failed} artikel");
