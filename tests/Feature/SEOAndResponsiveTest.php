@@ -215,4 +215,17 @@ class SEOAndResponsiveTest extends TestCase
         $this->assertStringContainsString('include /etc/nginx/snippets/laravel.conf;', $www);
         $this->assertStringNotContainsString('return 301', $www);
     }
+
+    /**
+     * Only Vite output (hashed file names) may be cached for a year; other static
+     * files keep their name when replaced and must expire sooner.
+     */
+    public function test_nginx_long_cache_only_for_hashed_build_assets(): void
+    {
+        $conf = file_get_contents(base_path('docker/nginx/snippets/laravel.conf'));
+
+        $this->assertMatchesRegularExpression('#location \^~ /build/ \{[^}]*expires 1y;[^}]*immutable#', $conf);
+        $this->assertMatchesRegularExpression('#location ~\* \\\.\(jpg[^)]*\)\$ \{\s*expires 7d;#', $conf);
+        $this->assertSame(1, substr_count($conf, 'expires 1y;'));
+    }
 }
