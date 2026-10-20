@@ -92,6 +92,7 @@ Berkas Unggahan Masuk
            Storage::disk('public') ──► storage/app/public/uploads/
                  ↓
            Dilayani via Web Server Statis: /storage/uploads/...
+           (JPEG/PNG/WebP diperkecil ke maks. 1920 px oleh ImageOptimizer)
 ```
 
 ### Invariant & Aturan Operasional Storage:

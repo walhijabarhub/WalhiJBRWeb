@@ -10,6 +10,7 @@ use App\Models\Content;
 use App\Models\Donation;
 use App\Services\AuditLogService;
 use App\Services\Content\HtmlSanitizer;
+use App\Services\Content\ImageOptimizer;
 use App\Services\Content\SlugService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -155,6 +156,7 @@ class ContentController extends Controller
             } else {
                 // Store media in public disk -> storage/app/public/uploads/
                 $path = $file->store('uploads', 'public');
+                ImageOptimizer::shrink($path);
                 $validated['image_url'] = '/storage/'.$path;
             }
         } elseif (! empty($validated['image_url'])) {
@@ -211,6 +213,7 @@ class ContentController extends Controller
             } else {
                 // Store media in public disk -> storage/app/public/uploads/
                 $path = $file->store('uploads', 'public');
+                ImageOptimizer::shrink($path);
                 $validated['image_url'] = '/storage/'.$path;
             }
         } elseif ($request->filled('image_url')) {
@@ -311,6 +314,7 @@ class ContentController extends Controller
         ]);
 
         $path = $request->file('image')->store('uploads', 'public');
+        ImageOptimizer::shrink($path);
         $url = '/storage/'.$path;
 
         return response()->json([

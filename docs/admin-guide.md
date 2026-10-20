@@ -70,6 +70,7 @@ Status bisa diubah dari form edit atau tombol ubah status di daftar konten.
 - Isi ditulis di editor. Gambar di dalam artikel diunggah lewat tombol gambar editor (JPEG/PNG/WebP/GIF, maks. 2 MB).
 - Kode yang ditempel ke editor (skrip, iframe, atribut berbahaya) otomatis dibuang saat disimpan. Untuk menyematkan video, cukup tautkan URL-nya.
 - **Gambar sampul / berkas:** unggah file (maks. **2 MB**; gambar JPEG/PNG/WebP/GIF, atau dokumen PDF/DOC/DOCX/XLS/XLSX), atau isi URL gambar/dokumen. File SVG dan file program ditolak.
+- Gambar JPEG/PNG/WebP yang diunggah (sampul maupun gambar di editor) otomatis diperkecil ke sisi terpanjang **1920 px** dan orientasi foto ponsel dibetulkan. Nama, format, dan alamat berkas tetap sama; GIF tidak diubah, dan WebP hanya diproses bila GD di server mendukung WebP (image Docker produksi saat ini belum).
 - **Dokumen** (PDF, Word, Excel) disimpan di area privat dan diunduh pengunjung lewat tombol unduh. Dokumen dari konten **draft** tidak bisa diunduh publik.
 
 ### Format khusus
