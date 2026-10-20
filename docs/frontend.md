@@ -89,6 +89,10 @@ Interactivity is intentionally lightweight and server-driven.
 - **Prefer named components** registered with `Alpine.data('name', () => ({ ... }))` in `app.js` (see `heroSlider`) and reference them with `x-data="name"`. Keep inline expressions in templates simple (property reads, assignments, method calls). Complex JavaScript inside attributes does not work under the CSP build; after any Alpine change, check the browser console for errors.
 - Use `x-cloak` to avoid UI flicker during hydration.
 
+### Images & lazy loading
+- `<img>` below the fold gets `loading="lazy" decoding="async"`; in card lists the first row (`$loop->index < 3`) stays `eager`. The main image of a detail page uses `fetchpriority="high"`.
+- CSS background images below the fold are written as `data-lazy-bg="{{ $url }}"` instead of `style="background-image: url(...)"`; [resources/js/lazy-backgrounds.js](../resources/js/lazy-backgrounds.js) sets the background when the element is within 300px of the viewport. Hero slides keep an inline `background-image` because they are visible on first paint.
+
 ### Replacing inline event handlers (`resources/js/csp-actions.js`)
 The CSP sets `script-src-attr 'none'`, so `onclick=`, `onsubmit=`, `onchange=`, `onmouseover=` etc. **do not run**. Use the delegated data attributes instead:
 
@@ -145,7 +149,7 @@ Rules:
 
 - **Config**: [vite.config.js](../vite.config.js) uses `laravel-vite-plugin` with entrypoints:
   - `resources/css/app.css`
-  - `resources/js/app.js` (imports `csp-actions.js`)
+  - `resources/js/app.js` (imports `csp-actions.js` and `lazy-backgrounds.js`)
   - `resources/js/csp-actions.js` (also usable on its own, e.g. by admin pages)
 - **Commands**:
   ```bash

@@ -125,7 +125,7 @@
                                     $newsRead = ceil($wordCount / 200) . ' menit';
                                 @endphp
                                 <article style="display: flex; flex-direction: column; overflow: hidden; border: 4px solid #1D1D1D; background: #FFFFFF; min-height: 454px;">
-                                    <div style="position: relative; height: 192px; background-image: url('{{ $newsImage }}'); background-size: cover; background-position: center;">
+                                    <div style="position: relative; height: 192px; background-size: cover; background-position: center;" data-lazy-bg="{{ $newsImage }}">
                                         <div style="position: absolute; left: 16px; top: 16px; padding: 4px 12px; background: {{ $loop->index % 3 === 2 ? '#8B6B4A' : ($loop->index % 3 === 1 ? '#5C8D59' : '#256D4A') }}; color: #F4F1EA; font-size: 12px; font-weight: 700; line-height: 18px; letter-spacing: 0.6px; text-transform: uppercase;">
                                             {{ $newsTag }}
                                         </div>

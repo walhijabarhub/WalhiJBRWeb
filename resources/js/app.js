@@ -2,6 +2,7 @@
 // which the Content Security Policy forbids.
 import Alpine from '@alpinejs/csp';
 import './csp-actions';
+import './lazy-backgrounds';
 
 Alpine.data('heroSlider', (total = 1) => ({
     active: 0,

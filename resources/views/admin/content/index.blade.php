@@ -79,7 +79,7 @@
                                             @if($category !== 'laporan-tahunan' && $category !== 'regulasi' && $category !== 'statistik' && $category !== 'isu-kritis' && $category !== 'kampanye-darurat')
                                                 @if($item->image_url && !str_ends_with(strtolower($item->image_url), '.pdf') && !str_ends_with(strtolower($item->image_url), '.xls') && !str_ends_with(strtolower($item->image_url), '.xlsx'))
                                                     <div class="w-12 h-12 rounded border border-[#ddd] overflow-hidden flex-shrink-0 bg-gray-100 shadow-sm">
-                                                        <img src="{{ $item->image_url }}" alt="" class="w-full h-full object-cover" />
+                                                        <img src="{{ $item->image_url }}" alt="" class="w-full h-full object-cover" loading="lazy" decoding="async" />
                                                     </div>
                                                 @else
                                                     <div class="w-12 h-12 rounded border border-dashed border-[#ccc] bg-[#f5f3ef] flex items-center justify-center flex-shrink-0 text-[#aaa]" title="Belum ada foto cover">

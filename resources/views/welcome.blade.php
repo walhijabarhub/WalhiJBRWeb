@@ -370,7 +370,7 @@
                                 }
                             @endphp
                             <article class="flex flex-col overflow-hidden border-4 border-brand-cream bg-white text-brand-dark shadow-[4px_4px_0px_0px_#D95C3F]">
-                                <div class="relative h-[192px] overflow-hidden bg-cover bg-center" style="background-image: url('{{ $issueImage }}');">
+                                <div class="relative h-[192px] overflow-hidden bg-cover bg-center" data-lazy-bg="{{ $issueImage }}">
                                     <div class="absolute left-4 top-4 flex h-[44px] items-center border-2 border-brand-cream bg-brand-dark px-3.5 text-xs font-bold uppercase tracking-wider font-sans" style="color: {{ $issueBadgeColor }};">
                                         {{ $issueBadge }}
                                     </div>
@@ -379,7 +379,7 @@
                                     <div class="flex flex-col gap-3">
                                         <div class="flex items-center gap-3">
                                             <div class="flex h-10 w-10 items-center justify-center bg-brand-dark p-2 flex-shrink-0">
-                                                <img src="{{ $iqon($issueIcon) }}" alt="{{ $issueTitle }}" class="h-6 w-6 object-contain">
+                                                <img src="{{ $iqon($issueIcon) }}" loading="lazy" decoding="async" alt="{{ $issueTitle }}" class="h-6 w-6 object-contain">
                                             </div>
                                             <h3 class="text-xl sm:text-2xl font-heading font-bold uppercase leading-snug tracking-wide text-brand-dark">
                                                 <a href="{{ $issueUrl }}" class="hover:text-brand-green transition-colors">{{ $issueTitle }}</a>
@@ -438,7 +438,7 @@
                             @endphp
                             <div class="bg-white border-4 border-brand-cream p-6 flex flex-col items-center justify-center gap-4 text-center shadow-[4px_4px_0px_0px_#256D4A]">
                                 <div class="flex h-14 w-14 items-center justify-center bg-brand-dark p-3">
-                                    <img src="{{ $iqon($statIcon) }}" alt="{{ $statLabel }}" class="h-8 w-8 object-contain">
+                                    <img src="{{ $iqon($statIcon) }}" loading="lazy" decoding="async" alt="{{ $statLabel }}" class="h-8 w-8 object-contain">
                                 </div>
                                 <div class="text-4xl sm:text-5xl font-heading font-extrabold leading-none" style="color: {{ $statColor }};">{{ $statValue }}</div>
                                 <div class="text-sm font-semibold uppercase tracking-wider text-brand-dark font-sans">{{ $statLabel }}</div>
@@ -489,7 +489,7 @@
                                         </div>
                                     </div>
                                     <a href="{{ $reportUrl }}" class="flex h-[49px] items-center justify-center gap-2 border-2 border-brand-dark bg-brand-dark px-6 text-sm font-bold uppercase tracking-wider text-brand-cream w-full md:w-auto hover:bg-brand-cream hover:text-brand-dark transition-colors whitespace-nowrap">
-                                        <img src="{{ $iqon('Icon-16.svg') }}" alt="Download" class="h-[18px] w-[18px] object-contain">
+                                        <img src="{{ $iqon('Icon-16.svg') }}" loading="lazy" decoding="async" alt="Download" class="h-[18px] w-[18px] object-contain">
                                         <span>Lihat Laporan</span>
                                     </a>
                                 </div>
@@ -510,7 +510,7 @@
                         </div>
                         <a href="{{ route('blog') }}" class="flex h-[49px] items-center justify-center gap-2 border-2 border-brand-dark bg-brand-dark px-6 text-sm font-bold uppercase tracking-wider text-brand-cream hover:bg-transparent hover:text-brand-dark transition-colors whitespace-nowrap">
                             <span>Lihat Semua Artikel</span>
-                            <img src="{{ $iqon('Icon-17.svg') }}" alt="Arrow" class="h-[18px] w-[18px] object-contain">
+                            <img src="{{ $iqon('Icon-17.svg') }}" loading="lazy" decoding="async" alt="Arrow" class="h-[18px] w-[18px] object-contain">
                         </a>
                     </div>
 
@@ -551,7 +551,7 @@
                         @endphp
                         <article class="flex flex-col lg:flex-row w-full overflow-hidden border-4 border-brand-dark bg-white shadow-[8px_8px_0px_0px_#256D4A]">
                             <!-- Featured Image -->
-                            <div class="relative min-h-[280px] lg:w-1/2 overflow-hidden bg-cover bg-center" style="background-image: url('{{ $featImage }}');">
+                            <div class="relative min-h-[280px] lg:w-1/2 overflow-hidden bg-cover bg-center" data-lazy-bg="{{ $featImage }}">
                                 <div class="absolute left-4 top-4 bg-brand-orange px-4 py-2 text-[12px] font-bold uppercase tracking-[0.06em] text-brand-cream">{{ $featTag }}</div>
                             </div>
                             <!-- Featured Content -->
@@ -572,7 +572,7 @@
                                     </div>
                                     <a href="{{ $featUrl }}" class="flex items-center gap-2 text-brand-dark font-bold hover:text-brand-green transition-colors">
                                         <span>Baca Selengkapnya</span>
-                                        <img src="{{ $iqon('Icon-18.svg') }}" alt="Detail" class="h-[18px] w-[18px] object-contain">
+                                        <img src="{{ $iqon('Icon-18.svg') }}" loading="lazy" decoding="async" alt="Detail" class="h-[18px] w-[18px] object-contain">
                                     </a>
                                 </div>
                             </div>
@@ -612,7 +612,7 @@
                                 }
                             @endphp
                             <article class="flex flex-col overflow-hidden border-4 border-brand-dark bg-white shadow-[4px_4px_0px_0px_#1D1D1D]">
-                                <div class="relative h-[192px] overflow-hidden bg-cover bg-center" style="background-image: url('{{ $newsImage }}');">
+                                <div class="relative h-[192px] overflow-hidden bg-cover bg-center" data-lazy-bg="{{ $newsImage }}">
                                     <div class="absolute left-4 top-4 px-3 py-1 text-[12px] font-bold uppercase tracking-[0.06em] text-brand-cream" style="background-color: {{ $loop->index % 3 === 2 ? '#8B6B4A' : ($loop->index % 3 === 1 ? '#5C8D59' : '#256D4A') }};">{{ $newsTag }}</div>
                                 </div>
                                 <div class="flex flex-1 flex-col justify-between px-6 py-6 text-brand-dark gap-6">
@@ -641,7 +641,7 @@
 
             <!-- Donasi Section -->
             <section id="donasi" class="relative w-full overflow-hidden bg-brand-green py-16 md:py-24 px-6 sm:px-12 md:px-24">
-                <div class="absolute inset-0 bg-cover bg-center opacity-10" style="background-image: url('{{ asset('assets/images/backgrounds/call-to-action-bg.jpg') }}');"></div>
+                <div class="absolute inset-0 bg-cover bg-center opacity-10" data-lazy-bg="{{ asset('assets/images/backgrounds/call-to-action-bg.jpg') }}"></div>
                 <div class="relative max-w-6xl mx-auto flex flex-col gap-16 z-10">
                     <div class="flex flex-col items-center text-center gap-4 w-full">
                         <h2 class="text-4xl sm:text-6xl md:text-7xl font-heading font-extrabold uppercase leading-tight tracking-[0.02em] text-brand-cream">
@@ -659,7 +659,7 @@
                             <div class="flex flex-col gap-6">
                                 <div class="flex items-center gap-4">
                                     <div class="flex h-14 w-14 items-center justify-center bg-brand-green p-3 flex-shrink-0">
-                                        <img src="{{ $iqon('Icon-19.svg') }}" alt="Relawan" class="h-8 w-8 object-contain">
+                                        <img src="{{ $iqon('Icon-19.svg') }}" loading="lazy" decoding="async" alt="Relawan" class="h-8 w-8 object-contain">
                                     </div>
                                     <h3 class="text-2xl md:text-3xl font-heading font-bold uppercase leading-none tracking-[0.05em]">Gabung #SahabatWALHI</h3>
                                 </div>
@@ -671,7 +671,7 @@
                                 </ul>
                             </div>
                             <a href="https://wa.me/6282119821159?text=Halo%20WALHI%20Jawa%20Barat,%20saya%20ingin%20bergabung%20dengan%20%23SahabatWALHI" target="_blank" class="mt-8 flex h-[60px] items-center justify-center gap-2 bg-brand-green hover:bg-brand-green-light transition-colors px-6 text-[16px] font-bold uppercase tracking-[0.04em] text-brand-cream">
-                                <img src="{{ $iqon('Icon-20.svg') }}" alt="Relawan" class="h-5 w-5 object-contain">
+                                <img src="{{ $iqon('Icon-20.svg') }}" loading="lazy" decoding="async" alt="Relawan" class="h-5 w-5 object-contain">
                                 <span>Gabung #SahabatWALHI</span>
                             </a>
                         </section>
@@ -681,7 +681,7 @@
                             <div class="flex flex-col gap-6">
                                 <div class="flex items-center gap-4">
                                     <div class="flex h-14 w-14 items-center justify-center bg-brand-orange p-3 flex-shrink-0">
-                                        <img src="{{ $iqon('Icon-21.svg') }}" alt="Dukungan" class="h-8 w-8 object-contain">
+                                        <img src="{{ $iqon('Icon-21.svg') }}" loading="lazy" decoding="async" alt="Dukungan" class="h-8 w-8 object-contain">
                                     </div>
                                     <h3 class="text-2xl md:text-3xl font-heading font-bold uppercase leading-none tracking-[0.05em] text-brand-dark">Dukung Gerakan</h3>
                                 </div>
@@ -697,7 +697,7 @@
                             </div>
                             <div class="mt-8 flex flex-col gap-3">
                                 <a href="https://wa.me/6282119821159?text=Halo%20Tim%20WALHI%20Jawa%20Barat,%20saya%20ingin%20berdonasi%20untuk%20mendukung%20advokasi%20lingkungan%20hidup%20dan%20keadilan%20ekologis%20di%20Jawa%20Barat.%20Mohon%20informasi%20rekening%20resmi%20atau%20QRIS.%20Terima%20kasih!%20🙏🌿" target="_blank" class="flex h-[60px] items-center justify-center gap-2 bg-brand-orange hover:bg-brand-orange/80 transition-colors px-6 text-[16px] font-bold uppercase tracking-[0.04em] text-brand-cream">
-                                    <img src="{{ $iqon('Icon-22.svg') }}" alt="Donasi" class="h-5 w-5 object-contain">
+                                    <img src="{{ $iqon('Icon-22.svg') }}" loading="lazy" decoding="async" alt="Donasi" class="h-5 w-5 object-contain">
                                     <span>Donasi via WhatsApp</span>
                                 </a>
                                 <a href="{{ route('donasi') }}" class="text-center text-xs font-bold uppercase tracking-wider text-brand-green hover:underline">
@@ -726,7 +726,7 @@
                             <!-- Email -->
                             <div class="flex items-center gap-4 border-2 border-brand-green bg-brand-green p-5 shadow-[4px_4px_0px_0px_#1D1D1D]">
                                 <div class="flex h-10 w-10 items-center justify-center bg-brand-dark p-2 flex-shrink-0">
-                                    <img src="{{ $iqon('Icon-23.svg') }}" alt="Email" class="h-6 w-6 object-contain">
+                                    <img src="{{ $iqon('Icon-23.svg') }}" loading="lazy" decoding="async" alt="Email" class="h-6 w-6 object-contain">
                                 </div>
                                 <div class="text-left overflow-hidden">
                                     <div class="text-[12px] font-bold uppercase tracking-[0.06em] text-brand-green-light">Email</div>
@@ -736,7 +736,7 @@
                             <!-- WhatsApp -->
                             <div class="flex items-center gap-4 border-2 border-brand-green bg-brand-green p-5 shadow-[4px_4px_0px_0px_#1D1D1D]">
                                 <div class="flex h-10 w-10 items-center justify-center bg-brand-dark p-2 flex-shrink-0">
-                                    <img src="{{ $iqon('Icon-24.svg') }}" alt="WhatsApp" class="h-6 w-6 object-contain">
+                                    <img src="{{ $iqon('Icon-24.svg') }}" loading="lazy" decoding="async" alt="WhatsApp" class="h-6 w-6 object-contain">
                                 </div>
                                 <div class="text-left overflow-hidden">
                                     <div class="text-[12px] font-bold uppercase tracking-[0.06em] text-brand-green-light">WhatsApp</div>
