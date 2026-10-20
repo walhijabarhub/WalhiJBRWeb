@@ -110,6 +110,7 @@ Turnstile aktif hanya bila **keduanya** terisi. Bila kosong, form komentar & new
 | `PRIVACY_RETENTION_MONTHS` | `24` | Umur data donatur & komentator sebelum dianonimkan. |
 | `PRIVACY_UNCONFIRMED_SUBSCRIBER_DAYS` | `30` | Subscriber yang tidak mengonfirmasi dihapus setelah N hari. |
 | `PRIVACY_DELETED_SUBSCRIBER_DAYS` | `30` | Subscriber yang dihapus admin dihapus permanen setelah N hari. |
+| `PRIVACY_AUDIT_LOG_DAYS` | `730` | Baris `audit_logs` (berisi email, IP, user agent) dihapus setelah N hari oleh `model:prune` harian. Jangan lebih pendek dari `LOG_AUDIT_DAYS`. |
 
 ## Container & Nginx
 
