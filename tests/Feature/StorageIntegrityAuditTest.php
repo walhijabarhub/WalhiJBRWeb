@@ -98,7 +98,7 @@ class StorageIntegrityAuditTest extends TestCase
         Storage::disk('public')->assertExists('uploads/trashed.jpg');
     }
 
-    public function test_unshared_image_is_still_removed(): void
+    public function test_unshared_image_is_kept_on_soft_delete_and_removed_on_force_delete(): void
     {
         Storage::disk('public')->put('uploads/own.jpg', 'img');
         $a = $this->makeContent(['image_url' => '/storage/uploads/own.jpg']);
@@ -106,7 +106,39 @@ class StorageIntegrityAuditTest extends TestCase
         $this->actingAs($this->admin)
             ->delete(route('admin.content.destroy', ['category' => 'blog', 'content' => $a]));
 
+        // AUD-12: a soft-deleted entry can be restored, so its file stays.
+        $this->assertSoftDeleted($a);
+        Storage::disk('public')->assertExists('uploads/own.jpg');
+
+        $a->fresh()->restore();
+        $this->assertNotSoftDeleted($a);
+        Storage::disk('public')->assertExists('uploads/own.jpg');
+
+        $a->fresh()->forceDelete();
         Storage::disk('public')->assertMissing('uploads/own.jpg');
+    }
+
+    public function test_replacing_an_unshared_image_still_removes_the_old_file(): void
+    {
+        Storage::disk('public')->put('uploads/old.jpg', 'img');
+        $a = $this->makeContent(['image_url' => '/storage/uploads/old.jpg']);
+
+        $this->actingAs($this->editor)
+            ->put(route('admin.content.update', ['category' => 'blog', 'content' => $a]), $this->updatePayload($a, ['remove_image' => '1']))
+            ->assertSessionHasNoErrors();
+
+        Storage::disk('public')->assertMissing('uploads/old.jpg');
+    }
+
+    public function test_force_deleting_keeps_a_private_document_shared_with_another_entry(): void
+    {
+        Storage::disk('local')->put('documents/bersama.pdf', '%PDF-1.4');
+        $a = $this->makeContent(['category' => ContentCategory::KertasPosisi->value, 'image_url' => 'documents/bersama.pdf']);
+        $this->makeContent(['category' => ContentCategory::KertasPosisi->value, 'image_url' => 'documents/bersama.pdf']);
+
+        $a->forceDelete();
+
+        Storage::disk('local')->assertExists('documents/bersama.pdf');
     }
 
     // ── AUD-02: a private document cannot be re-attached to another entry ────

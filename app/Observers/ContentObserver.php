@@ -3,6 +3,7 @@
 namespace App\Observers;
 
 use App\Models\Content;
+use App\Services\Content\ContentAttachment;
 use App\Services\Content\ContentCache;
 
 class ContentObserver
@@ -20,6 +21,15 @@ class ContentObserver
     public function deleted(Content $content): void
     {
         ContentCache::flush();
+    }
+
+    /**
+     * A soft delete keeps the attachment for restore; it is removed only when the row
+     * is deleted permanently.
+     */
+    public function forceDeleted(Content $content): void
+    {
+        ContentAttachment::delete($content);
     }
 
     public function restored(Content $content): void
