@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\MassPrunable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -10,6 +12,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class AuditLog extends Model
 {
+    use MassPrunable;
+
     public const UPDATED_AT = null;
 
     protected $fillable = [
@@ -27,6 +31,14 @@ class AuditLog extends Model
         'details' => 'array',
         'created_at' => 'datetime',
     ];
+
+    /**
+     * Entries older than the retention period (config/privacy.php), removed by `model:prune`.
+     */
+    public function prunable(): Builder
+    {
+        return static::where('created_at', '<', now()->subDays(config('privacy.audit_log_days')));
+    }
 
     public function user(): BelongsTo
     {
