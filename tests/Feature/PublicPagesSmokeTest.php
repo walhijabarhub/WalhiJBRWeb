@@ -46,4 +46,18 @@ class PublicPagesSmokeTest extends TestCase
     {
         $this->assertGreaterThan(0, filesize(public_path('favicon.ico')));
     }
+
+    public function test_home_page_links_walhi_favicons(): void
+    {
+        $html = $this->get('/')->assertOk()->getContent();
+
+        preg_match_all('/<link[^>]+rel="(?:icon|apple-touch-icon|manifest)"[^>]*href="([^"]+)"/', $html, $matches);
+
+        $this->assertNotEmpty($matches[1]);
+
+        foreach ($matches[1] as $href) {
+            $path = public_path(ltrim(parse_url($href, PHP_URL_PATH), '/'));
+            $this->assertFileExists($path);
+        }
+    }
 }
