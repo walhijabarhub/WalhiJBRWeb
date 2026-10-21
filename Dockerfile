@@ -9,7 +9,7 @@ COPY public ./public
 RUN npm run build
 
 # ─── Stage 2: PHP Application Container (PHP-FPM) ─────────────
-FROM php:8.4-fpm-alpine3.22
+FROM php:8.5-fpm-alpine3.22
 
 # phpredis is built from its GitHub release tarball (checksum pinned) instead of
 # "pecl install": pecl.php.net outages broke image builds and therefore deploys.
