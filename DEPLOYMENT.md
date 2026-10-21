@@ -115,7 +115,7 @@ Versi ini menambah Redis, worker, scheduler dan template nginx. Lakukan **sebelu
 | `walhi_prod_db` | Data MySQL |
 | `walhi_prod_redis` | Data Redis (AOF) |
 | `walhi_prod_logs` | `storage/logs` (termasuk `audit.log` & `php-fpm-slow.log`) |
-| `walhi_prod_public` | Salinan `public/` dari image untuk nginx. Disinkronkan container `app` saat start bila `public/build` lebih baru; berkas yang sudah tidak ada di image ikut dihapus, kecuali `build/` (bundle lama dipertahankan). Aman dihapus: akan diisi ulang saat `app` start. |
+| `walhi_prod_public` | Salinan `public/` dari image untuk nginx. Disinkronkan container `app` saat start bila isi `public/` di image berbeda dari sinkronisasi terakhir (sidik daftar berkas, ukuran, waktu ubah di `.assets_synced`); berkas yang sudah tidak ada di image ikut dihapus, kecuali `build/` (bundle lama dipertahankan). Aman dihapus: akan diisi ulang saat `app` start. |
 
 > [!WARNING]
 > **Upgrade dari versi sebelum volume `walhi_prod_app_storage`:** dulu `storage/app/private` tidak persisten, sehingga dokumen yang diunggah sejak deploy terakhir hanya ada di container yang sedang berjalan. **Sebelum** deploy versi ini, salin dokumen tersebut:

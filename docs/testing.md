@@ -7,7 +7,7 @@ Dokumen ini memandu pengembang dan AI coding agents dalam menjalankan, memelihar
 ## 1. Ikhtisar Test Suite
 
 - **Framework:** PHPUnit 12 (`php artisan test`)
-- **Total:** **298 test, 1291 assertion**, semuanya lulus (per Oktober 2026)
+- **Total:** **299 test, 1300 assertion**, semuanya lulus (per Oktober 2026)
 - **Cakupan:** autentikasi & 2FA, RBAC, manajemen konten, keamanan konten & CSP, dokumen privat, donasi & Midtrans, audit log, cache & pencarian, newsletter, retensi data, CAPTCHA, proxy tepercaya, SEO.
 
 Perbarui angka di atas (dan di `AGENTS.md`) bila jumlah test berubah signifikan.

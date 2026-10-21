@@ -4,7 +4,7 @@ Semua perubahan penting pada platform web WALHI Jawa Barat. Setiap merge ke `pro
 
 ## [Belum dirilis]
 
-### Optimasi Oktober 2026 (#130–#150)
+### Optimasi Oktober 2026 (#130–#152)
 Hasil analisis optimasi repo setelah audit produksi 19 Oktober 2026. Setiap PR berdiri sendiri, kecuali #140 (di atas #139) dan #141 (di atas #134).
 
 #### Performa
@@ -23,12 +23,13 @@ Hasil analisis optimasi repo setelah audit produksi 19 Oktober 2026. Setiap PR b
 - Soft-delete konten tidak lagi menghapus berkas lampiran; berkas dihapus saat force delete (AUD-12) (#144).
 - Sumbu grafik donasi admin tidak lagi negatif saat belum ada data (#145, test regresi #149).
 - `favicon.ico` berukuran 0 byte (#133).
-- Berkas yang dihapus dari `public/` tidak lagi tertinggal di volume nginx (`docker-entrypoint.sh` memakai `cp -ru` tanpa penghapusan) (#150).
+- Berkas yang dihapus dari `public/` tidak lagi tertinggal di volume nginx (`docker-entrypoint.sh` memakai `cp -ru` tanpa penghapusan) (#150); sinkronisasi dipicu sidik isi `public/`, bukan mtime `build/` (#151).
+- Build image tidak lagi bergantung pada pecl.php.net: phpredis 6.2.0 dipasang dari tarball rilis GitHub ber-checksum SHA-256 (#152).
 
 #### Ditambahkan
 - `/up` memeriksa database dan cache/Redis (500 bila salah satunya gagal) (#143).
 - Pruning harian `audit_logs` (`PRIVACY_AUDIT_LOG_DAYS`, default 730 hari), `failed_jobs`, `job_batches`, dan token reset password (#132); jumlah audit log yang dihapus dicatat sebagai `AUDIT_LOGS_PRUNED` (#148).
-- Smoke test seluruh halaman publik dan test regresi untuk tiap perubahan di atas (total 298 test).
+- Smoke test seluruh halaman publik dan test regresi untuk tiap perubahan di atas (total 299 test).
 
 #### Diubah
 - Aset `<head>` 15 halaman publik disatukan di `partials/head-assets` (#139).

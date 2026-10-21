@@ -15,9 +15,15 @@ class PublicAssetSyncTest extends TestCase
         $script = file_get_contents(base_path('docker-entrypoint.sh'));
         $sync = substr($script, strpos($script, '# ── Sync public assets'));
 
-        $this->assertStringContainsString('cp -ru /var/www/html/public/. /var/www/html/public_shared/', $sync);
+        // Triggered by a fingerprint of public/ (not by public/build's mtime, which a cached
+        // frontend layer keeps unchanged), and copied without -u so a rollback wins.
+        $this->assertStringContainsString("stat -c '%n %s %Y'", $sync);
+        $this->assertStringContainsString('!= "$PUBLIC_FINGERPRINT"', $sync);
+        $this->assertStringNotContainsString(' -nt ', $sync);
+        $this->assertStringContainsString('cp -r /var/www/html/public/. /var/www/html/public_shared/', $sync);
+        $this->assertStringNotContainsString('cp -ru', $sync);
         $this->assertMatchesRegularExpression("#find \\. -type f ! -path './build/\\*' ! -name '\\.assets_synced'#", $sync);
         $this->assertStringContainsString('[ -e "/var/www/html/public/$f" ] || [ -L "/var/www/html/public/$f" ] || rm -f -- "$f"', $sync);
-        $this->assertLessThan(strpos($sync, 'touch /var/www/html/public_shared/.assets_synced'), strpos($sync, 'rm -f --'));
+        $this->assertLessThan(strpos($sync, 'echo "$PUBLIC_FINGERPRINT" > /var/www/html/public_shared/.assets_synced'), strpos($sync, 'rm -f --'));
     }
 }
