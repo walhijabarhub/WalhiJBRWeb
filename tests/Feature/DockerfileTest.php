@@ -14,7 +14,8 @@ class DockerfileTest extends TestCase
     {
         $dockerfile = file_get_contents(base_path('Dockerfile'));
 
-        $this->assertStringNotContainsString('pecl install', $dockerfile);
+        // No command line may run pecl (comments may still mention it).
+        $this->assertDoesNotMatchRegularExpression('/^\s*(RUN\s+|&&\s+)pecl\s+install/m', $dockerfile);
         $this->assertMatchesRegularExpression('/^ARG PHPREDIS_SHA256=[0-9a-f]{64}$/m', $dockerfile);
         $this->assertStringContainsString('github.com/phpredis/phpredis/archive/refs/tags/${PHPREDIS_VERSION}.tar.gz', $dockerfile);
         $this->assertStringContainsString('echo "${PHPREDIS_SHA256}  /tmp/phpredis.tar.gz" | sha256sum -c -', $dockerfile);
