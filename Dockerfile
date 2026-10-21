@@ -11,6 +11,13 @@ RUN npm run build
 # ─── Stage 2: PHP Application Container (PHP-FPM) ─────────────
 FROM php:8.4-fpm-alpine3.22
 
+# phpredis is built from its GitHub release tarball (checksum pinned) instead of
+# "pecl install": pecl.php.net outages broke image builds and therefore deploys.
+# Same source as the PECL package; lzf support stays off, as with pecl's defaults.
+# Update the version and the SHA-256 of the GitHub source tarball together.
+ARG PHPREDIS_VERSION=6.2.0
+ARG PHPREDIS_SHA256=470333b27cbf9485d36b610b81300c06491a6575f22c6801a9cefc55285ed123
+
 # Install system dependencies & PHP extensions
 RUN apk add --no-cache \
     bash \
@@ -30,8 +37,13 @@ RUN apk add --no-cache \
     su-exec \
     fcgi \
     && apk add --no-cache --virtual .build-deps $PHPIZE_DEPS \
-    && pecl install redis-6.2.0 \
-    && docker-php-ext-enable redis \
+    && curl -fsSL --retry 5 --retry-delay 3 -o /tmp/phpredis.tar.gz \
+        https://github.com/phpredis/phpredis/archive/refs/tags/${PHPREDIS_VERSION}.tar.gz \
+    && echo "${PHPREDIS_SHA256}  /tmp/phpredis.tar.gz" | sha256sum -c - \
+    && mkdir -p /usr/src/php/ext/redis \
+    && tar -xzf /tmp/phpredis.tar.gz -C /usr/src/php/ext/redis --strip-components=1 \
+    && rm /tmp/phpredis.tar.gz \
+    && docker-php-ext-install redis \
     && apk del .build-deps \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j$(nproc) \

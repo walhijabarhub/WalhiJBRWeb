@@ -83,6 +83,7 @@ docker rm -f walhi-test-mysql
 | `tests/Feature/LucideIconsTest.php` | Setiap ikon `data-lucide` (termasuk yang dinamis) ada di `resources/js/icons.js`; tidak ada Lucide dari CDN. | 2 |
 | `tests/Feature/PublicHeadAssetsTest.php` | Halaman publik memuat font/Vite/Lucide hanya lewat `partials/head-assets`. | 1 |
 | `tests/Feature/BundledAssetsExistTest.php` | Setiap path aset literal (`assets/…`, `iqon/…`) di kode ada di `public/`. | 1 |
+| `tests/Feature/DockerfileTest.php` | phpredis dipasang dari tarball rilis GitHub ber-checksum, tanpa `pecl install`. | 1 |
 | `tests/Feature/PublicAssetSyncTest.php` | Entrypoint menghapus berkas yang sudah tidak ada di image dari volume publik nginx (kecuali `build/`). | 1 |
 
 ---
