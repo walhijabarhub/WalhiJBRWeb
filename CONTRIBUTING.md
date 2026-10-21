@@ -173,7 +173,7 @@ Setiap Pull Request yang diajukan ke repository ini **wajib mematuhi ketentuan b
 Sebelum mengajukan PR, pastikan semua tes lokal berjalan tanpa error:
 
 ```bash
-# Menjalankan PHPUnit Feature & Unit Tests (298 test)
+# Menjalankan PHPUnit Feature & Unit Tests (299 test)
 php artisan test
 
 # Cek format kode PHP (Laravel Pint)

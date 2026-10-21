@@ -150,10 +150,16 @@ else
 fi
 
 # ── Sync public assets to shared public volume (for Nginx container) ──
+# The volume is refreshed whenever the image's public/ differs from what was synced
+# last (file list, sizes and mtimes), not only when public/build changed: a deploy that
+# only removes or replaces files outside build/ must reach nginx too.
 if [ "$CONTAINER_ROLE" = "app" ] && [ -d "/var/www/html/public_shared" ]; then
-    if [ ! -f "/var/www/html/public_shared/.assets_synced" ] || [ "/var/www/html/public/build" -nt "/var/www/html/public_shared/.assets_synced" ]; then
+    PUBLIC_FINGERPRINT=$(cd /var/www/html/public && find . \( -type f -o -type l \) -exec stat -c '%n %s %Y' {} + | sort | md5sum | cut -d' ' -f1)
+    if [ "$(cat /var/www/html/public_shared/.assets_synced 2>/dev/null)" != "$PUBLIC_FINGERPRINT" ]; then
         echo "       Syncing updated public assets to shared Nginx volume..."
-        cp -ru /var/www/html/public/. /var/www/html/public_shared/ 2>/dev/null || cp -r /var/www/html/public/. /var/www/html/public_shared/
+        # Plain cp -r (not -u): after a rollback the image's files are older than the
+        # volume's, and they must still win.
+        cp -r /var/www/html/public/. /var/www/html/public_shared/
         # cp never deletes: remove files that are no longer in the image (e.g. pruned theme
         # assets), so nginx stops serving them. build/ is kept because pages still open
         # during a deploy may request the previous hashed bundles.
@@ -164,7 +170,7 @@ if [ "$CONTAINER_ROLE" = "app" ] && [ -d "/var/www/html/public_shared" ]; then
             done
             find . -mindepth 1 -type d -empty ! -path './build' ! -path './build/*' -delete 2>/dev/null || true
         )
-        touch /var/www/html/public_shared/.assets_synced 2>/dev/null || true
+        echo "$PUBLIC_FINGERPRINT" > /var/www/html/public_shared/.assets_synced 2>/dev/null || true
     else
         echo "       Shared public assets already up-to-date, skipping sync..."
     fi
