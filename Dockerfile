@@ -9,7 +9,12 @@ COPY public ./public
 RUN npm run build
 
 # ─── Stage 2: PHP Application Container (PHP-FPM) ─────────────
-FROM php:8.4-fpm-alpine3.22
+# Pinned to an exact PHP patch release and image digest. A floating tag is not enough:
+# php:8.4-fpm-alpine3.22 stopped receiving updates in June 2026 and stayed on 8.4.22,
+# missing the fixes for CVE-2026-109618/109619 (8.4.27). CI refuses images older than
+# MIN_PHP_VERSION. To update: pick the newest php:8.4.x-fpm-alpine3.y tag, copy its
+# index digest (docker buildx imagetools inspect <tag>), and change both together.
+FROM php:8.4.27-fpm-alpine3.24@sha256:6b83fd767e1902ae4c89fe11f929f02e78bf769215c703060ac8a7c4be672c8c
 
 # phpredis is built from its GitHub release tarball (checksum pinned) instead of
 # "pecl install": pecl.php.net outages broke image builds and therefore deploys.
@@ -80,6 +85,7 @@ RUN composer dump-autoload --optimize --no-dev
 # Copy custom PHP-FPM and OPcache configurations (8 GB RAM / 2 vCPU VPS tuning)
 COPY docker/php/zz-docker.conf /usr/local/etc/php-fpm.d/zz-docker.conf
 COPY docker/php/opcache.ini /usr/local/etc/php/conf.d/opcache.ini
+COPY docker/php/security.ini /usr/local/etc/php/conf.d/zz-security.ini
 
 # Ensure all Laravel storage framework directories exist in the image
 RUN mkdir -p storage/framework/views \

@@ -20,8 +20,11 @@ updates:
       interval: monthly
     target-branch: production
 
+  # The PHP base image is pinned by patch version + digest; weekly checks pick up PHP
+  # security releases. Dependabot keeps the alpine3.y suffix, so moving to a newer Alpine
+  # (when Docker stops building the current one) is still a manual change.
   - package-ecosystem: docker
     directory: "/"
     schedule:
-      interval: monthly
+      interval: weekly
     target-branch: production

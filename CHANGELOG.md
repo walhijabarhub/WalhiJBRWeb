@@ -4,6 +4,9 @@ Semua perubahan penting pada platform web WALHI Jawa Barat. Setiap merge ke `pro
 
 ## [Belum dirilis]
 
+### Keamanan
+- PHP 8.4.22 → 8.4.27 untuk CVE-2026-109618 dan CVE-2026-109619 (PHP2Shell, RCE tanpa autentikasi). Image dasar `php:8.4-fpm-alpine3.22` ternyata berhenti diperbarui Docker sejak Juni 2026; kini dikunci ke `php:8.4.27-fpm-alpine3.24` + digest. `session.upload_progress` dan `expose_php` dimatikan. CI memeriksa versi PHP, ekstensi, dan konfigurasi di dalam image yang dibangun; Dependabot docker kini mingguan.
+
 ### Optimasi Oktober 2026 (#130–#152)
 Hasil analisis optimasi repo setelah audit produksi 19 Oktober 2026. Setiap PR berdiri sendiri, kecuali #140 (di atas #139) dan #141 (di atas #134).
 
