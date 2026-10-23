@@ -45,8 +45,6 @@ class AdminController extends Controller
             ];
         });
 
-        $recentTransactions = Donation::orderBy('created_at', 'desc')->take(5)->get();
-
         $latestPostings = Content::publishable()
             ->select(['id', 'title', 'slug', 'category', 'status', 'author', 'publish_date', 'created_at'])
             ->orderBy('created_at', 'desc')
@@ -55,7 +53,7 @@ class AdminController extends Controller
 
         $recentActivities = $this->getRecentActivities();
 
-        return view('admin.dashboard', compact('stats', 'recentTransactions', 'latestPostings', 'recentActivities'));
+        return view('admin.dashboard', compact('stats', 'latestPostings', 'recentActivities'));
     }
 
     /**
@@ -67,8 +65,11 @@ class AdminController extends Controller
     {
         $activities = collect();
 
-        // 1. Recent Donations
-        $donations = Donation::latest()->take(10)->get();
+        // 1. Recent Donations: donor names are personal data, shown only to roles that may
+        //    open the donation dashboard (ContentPolicy@viewCategory, admin-only).
+        $donations = request()->user()?->can('viewCategory', [Content::class, 'donasi'])
+            ? Donation::latest()->take(10)->get()
+            : collect();
         foreach ($donations as $donation) {
             $activities->push([
                 'type' => 'donation',

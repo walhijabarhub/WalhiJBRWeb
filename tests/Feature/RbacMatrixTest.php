@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\UserRole;
 use App\Models\Content;
+use App\Models\Donation;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -219,5 +220,28 @@ class RbacMatrixTest extends TestCase
             'status' => 'published',
         ]);
         $responsePost->assertStatus(404);
+    }
+
+    // ── 5. Donor Data on the Shared Dashboard ─────────────────────────
+
+    public function test_dashboard_shows_donor_names_to_admin_only(): void
+    {
+        Donation::create([
+            'order_id' => 'WALHI-DON-RBAC-1',
+            'donor_name' => 'Donatur Rahasia Rbac',
+            'donor_email' => 'donor@example.com',
+            'donor_phone' => '0812000000',
+            'amount' => 50000,
+            'status' => 'success',
+        ]);
+
+        $this->actingAs($this->admin)->get('/admin')
+            ->assertOk()
+            ->assertSee('Donatur Rahasia Rbac');
+
+        $this->actingAs($this->editor)->get('/admin')
+            ->assertOk()
+            ->assertDontSee('Donatur Rahasia Rbac')
+            ->assertDontSee('Donasi Masuk');
     }
 }

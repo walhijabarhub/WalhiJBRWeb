@@ -186,6 +186,7 @@ Aplikasi menerapkan 3 peran pengguna (`App\Enums\UserRole`):
 | **`subscriber`** | Hanya Baca Publik | **Tidak** | **Tidak** |
 
 - Admin terakhir tidak dapat menghapus akunnya sendiri.
+- Dashboard `/admin` dipakai bersama admin & editor, tetapi aktivitas donasi (nama donatur, nominal per transaksi) hanya tampil bagi peran yang boleh membuka kategori `donasi` (`ContentPolicy@viewCategory`, admin). Editor hanya melihat angka agregat.
 - Parameter `{category}` pada routing `/admin/{category}` dibatasi regex nilai `ContentCategory`. Kategori lain → **`404`** sebelum controller dipanggil.
 
 ### B. Login
@@ -217,6 +218,7 @@ Aplikasi menerapkan 3 peran pengguna (`App\Enums\UserRole`):
    - Cloudflare Turnstile bila `TURNSTILE_SITE_KEY` dan `TURNSTILE_SECRET_KEY` diisi. Bila API Cloudflare tidak bisa dihubungi, kiriman ditolak (*fail-closed*).
 3. **Validasi:** nama & email wajib, isi 5–5.000 karakter.
 4. **Balasan:** maksimal 1 level (`parent_id`). Balasan harus menginduk pada komentar di artikel yang sama.
+5. **Hanya konten `published`:** komentar ke konten `draft`/`archived` → **`404`** dan tidak disimpan (sama seperti halaman detailnya).
 
 ---
 
