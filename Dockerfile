@@ -1,6 +1,6 @@
 # ─── Stage 1: Node.js Asset Build ───────────────────────────
-# Base images are pinned to a minor version so rebuilds are reproducible.
-FROM node:20.19-alpine AS frontend
+# Node 24 LTS (Node 20 reached end of life in April 2026), pinned by tag and digest.
+FROM node:24.22.1-alpine@sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53 AS frontend
 WORKDIR /app
 COPY package*.json vite.config.js tailwind.config.js postcss.config.js ./
 RUN npm ci --ignore-scripts
@@ -23,25 +23,30 @@ FROM php:8.4.27-fpm-alpine3.24@sha256:6b83fd767e1902ae4c89fe11f929f02e78bf769215
 ARG PHPREDIS_VERSION=6.2.0
 ARG PHPREDIS_SHA256=470333b27cbf9485d36b610b81300c06491a6575f22c6801a9cefc55285ed123
 
-# Install system dependencies & PHP extensions
+# Install PHP extensions. Only the shared libraries they link against stay in the
+# runtime image; compilers, headers (-dev) and download tools are a virtual package
+# removed in the same layer, which keeps them out of the attack surface.
 RUN apk add --no-cache \
     bash \
-    curl \
-    git \
-    libpng-dev \
-    libjpeg-turbo-dev \
-    freetype-dev \
-    libzip-dev \
-    zip \
-    unzip \
-    sqlite \
-    sqlite-dev \
-    oniguruma-dev \
-    icu-dev \
-    sed \
     su-exec \
     fcgi \
-    && apk add --no-cache --virtual .build-deps $PHPIZE_DEPS \
+    libpng \
+    libjpeg-turbo \
+    freetype \
+    libzip \
+    sqlite-libs \
+    oniguruma \
+    icu-libs \
+    && apk add --no-cache --virtual .build-deps \
+        $PHPIZE_DEPS \
+        curl \
+        libpng-dev \
+        libjpeg-turbo-dev \
+        freetype-dev \
+        libzip-dev \
+        sqlite-dev \
+        oniguruma-dev \
+        icu-dev \
     && curl -fsSL --retry 5 --retry-delay 3 -o /tmp/phpredis.tar.gz \
         https://github.com/phpredis/phpredis/archive/refs/tags/${PHPREDIS_VERSION}.tar.gz \
     && echo "${PHPREDIS_SHA256}  /tmp/phpredis.tar.gz" | sha256sum -c - \
@@ -49,7 +54,6 @@ RUN apk add --no-cache \
     && tar -xzf /tmp/phpredis.tar.gz -C /usr/src/php/ext/redis --strip-components=1 \
     && rm /tmp/phpredis.tar.gz \
     && docker-php-ext-install redis \
-    && apk del .build-deps \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j$(nproc) \
         pdo \
@@ -62,7 +66,8 @@ RUN apk add --no-cache \
         gd \
         zip \
         intl \
-        opcache
+        opcache \
+    && apk del .build-deps
 
 # Install Composer
 COPY --from=composer:2.8 /usr/bin/composer /usr/bin/composer
@@ -71,7 +76,10 @@ WORKDIR /var/www/html
 
 # Copy composer files and install dependencies
 COPY composer.json composer.lock ./
-RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist
+# git/unzip are only needed while Composer fetches packages.
+RUN apk add --no-cache --virtual .composer-deps git unzip \
+    && composer install --no-dev --no-scripts --no-autoloader --prefer-dist \
+    && apk del .composer-deps
 
 # Copy application source
 COPY . .

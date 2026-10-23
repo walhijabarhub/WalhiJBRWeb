@@ -156,7 +156,7 @@ Rules:
   npm run dev     # Starts local Vite development server with Hot Module Replacement (HMR)
   npm run build   # Compiles and minifies assets to public/build/ for production
   ```
-- Production images build assets inside the Dockerfile (`node:20` stage, `npm ci`). Feature tests call `$this->withoutVite()`, so tests do not need a built manifest.
+- Production images build assets inside the Dockerfile (`node:24` LTS stage pinned by digest, `npm ci`). Feature tests call `$this->withoutVite()`, so tests do not need a built manifest.
 - **In Blade**:
   ```blade
   @vite(['resources/css/app.css', 'resources/js/app.js'])

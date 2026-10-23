@@ -87,9 +87,9 @@ Setelah perintah selesai, container berikut berjalan (semua dengan healthcheck �
 - `walhi_prod_app` — Laravel 13 / PHP-FPM 8.4
 - `walhi_prod_worker` — `queue:work` (email konfirmasi newsletter, notifikasi)
 - `walhi_prod_scheduler` — `schedule:work` (rekonsiliasi donasi, flush views, retensi data)
-- `walhi_prod_db` — MySQL 8.0
-- `walhi_prod_redis` — Redis 7 (session, cache, rate limit, queue; tidak dipublish ke luar)
-- `walhi_prod_nginx` — Nginx (server terdepan & terminasi TLS)
+- `walhi_prod_db` — MySQL 8.0 (tag mengambang; 8.0 sudah EOL — upgrade ke 8.4 LTS adalah langkah operator terpisah, lihat docs/audits/2026-10-23-security-audit.md)
+- `walhi_prod_redis` — Redis 7.4.11, dipin ke digest (session, cache, rate limit, queue; tidak dipublish ke luar)
+- `walhi_prod_nginx` — Nginx 1.30.6 stable, dipin ke digest (server terdepan & terminasi TLS)
 
 ### ⬆️ Upgrade Server yang Sudah Berjalan (wajib sebelum deploy versi ini)
 Versi ini menambah Redis, worker, scheduler dan template nginx. Lakukan **sebelum** `git pull` / deploy berikutnya, atau deploy akan gagal / HTTPS mati:
