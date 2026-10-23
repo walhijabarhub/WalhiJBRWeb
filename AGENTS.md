@@ -14,7 +14,7 @@ This document is the **primary entrypoint and operating manual** for modern AI c
 
 | Layer | Technology | Verified Version | Notes |
 | :--- | :--- | :--- | :--- |
-| **Runtime** | PHP | `^8.3` (Production image: `8.4-fpm-alpine`) | Typed parameters, return types, enums. |
+| **Runtime** | PHP | `^8.3` (Production image: `php:8.4.27-fpm-alpine3.24`, digest-pinned; CI enforces `MIN_PHP_VERSION`) | Typed parameters, return types, enums. |
 | **Framework** | Laravel | `^13.8` (Locked: `13.35.0`) | Modern callable `bootstrap/app.php`. |
 | **Testing** | PHPUnit | `^12.5.12` | 299 automated tests (1300 assertions). |
 | **Frontend Build** | Vite | `^8.0.0` (Installed: `8.1.3`) | `laravel-vite-plugin ^3.1`. |

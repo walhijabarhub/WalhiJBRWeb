@@ -156,7 +156,26 @@ jobs:
           context: .
           file: ./Dockerfile
           push: false
+          load: true
           tags: walhi-jabar-app:test
+
+      # The PHP runtime is not covered by composer audit, so check the built image itself.
+      # Raise MIN_PHP_VERSION when a PHP security release must be enforced.
+      - name: Verify PHP runtime in image (patch level, extensions, hardening)
+        env:
+          MIN_PHP_VERSION: '8.4.27' # CVE-2026-109618 / CVE-2026-109619
+        run: |
+          docker run --rm --entrypoint php -e MIN_PHP_VERSION walhi-jabar-app:test -r '
+            $min = getenv("MIN_PHP_VERSION");
+            $fail = [];
+            if (version_compare(PHP_VERSION, $min, "<")) $fail[] = "PHP ".PHP_VERSION." < $min";
+            foreach (["redis","gd","intl","pdo_mysql","pdo_sqlite","zip","mbstring","bcmath","exif","pcntl","Zend OPcache"] as $ext)
+                if (!extension_loaded($ext)) $fail[] = "missing extension $ext";
+            if (ini_get("session.upload_progress.enabled")) $fail[] = "session.upload_progress.enabled is on";
+            if (ini_get("expose_php")) $fail[] = "expose_php is on";
+            echo "PHP ".PHP_VERSION.PHP_EOL;
+            if ($fail) { fwrite(STDERR, implode(PHP_EOL, $fail).PHP_EOL); exit(1); }'
+          docker run --rm --entrypoint php-fpm walhi-jabar-app:test -t
 
       - name: Validate production compose file
         run: |

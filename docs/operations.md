@@ -199,6 +199,7 @@ Cache konten sudah dibersihkan otomatis setiap kali konten disimpan atau dihapus
 | Deploy gagal: *unauthorized* saat pull GHCR | Server tidak login ke registry | Workflow login otomatis memakai `GITHUB_TOKEN`; untuk deploy manual login sementara dengan token `read:packages`. |
 | Test CI gagal: *Vite manifest not found* | View dirender tanpa aset terbangun | `tests/TestCase.php` memanggil `withoutVite()`. Jangan dihapus. |
 | HTTPS mati setelah perpanjangan sertifikat | nginx tidak di-reload | Hook `/etc/letsencrypt/renewal-hooks/deploy/reload-walhi-nginx.sh` menangani ini. Cek dengan `certbot renew --dry-run`. |
+| Image produksi tertinggal di PHP lama (8.4.22, rentan CVE-2026-109618/109619) | Tag mengambang `php:8.4-fpm-alpine3.22` berhenti diperbarui Docker sejak Juni 2026 | Image dasar kini dikunci ke versi patch + digest dan CI menolak PHP < `MIN_PHP_VERSION` (lihat §12). |
 | Disk penuh | Image lama & backup | `docker image prune -a --filter "until=168h"`; cek `BACKUP_RETENTION_DAYS`. |
 
 ---
@@ -219,3 +220,12 @@ Cache konten sudah dibersihkan otomatis setiap kali konten disimpan atau dihapus
 - [ ] `ADMIN_PASSWORD` / `EDITOR_PASSWORD` di `.env` kosong setelah akun dibuat.
 - [ ] Backup harian berhasil dan off-site terisi.
 - [ ] Sertifikat SSL > 30 hari sebelum kedaluwarsa.
+- [ ] PHP di produksi sudah rilis keamanan terbaru: `for c in walhi_prod_app walhi_prod_worker walhi_prod_scheduler; do docker exec $c php -r 'echo PHP_VERSION, PHP_EOL;'; done` dibandingkan dengan [php.net/releases](https://www.php.net/releases/).
+
+### Memperbarui PHP (image dasar)
+
+`Dockerfile` memakai `FROM php:<versi-patch>-fpm-alpine<versi>@sha256:<digest>`. Dependabot mengusulkan versi patch baru tiap minggu (tag dan digest diganti bersama). Untuk rilis keamanan PHP:
+
+1. Ambil tag terbaru `php:8.4.x-fpm-alpine3.y` dan digest-nya: `docker buildx imagetools inspect php:8.4.x-fpm-alpine3.y`. Bila Docker berhenti membangun versi Alpine yang dipakai, pindah ke Alpine yang lebih baru (Dependabot tidak melakukannya).
+2. Ganti tag + digest di `Dockerfile`, dan naikkan `MIN_PHP_VERSION` di job `docker-build` (`ci.yml`) serta batas di `DockerfileTest`.
+3. PR ke `production`; setelah deploy jalankan pengecekan di atas untuk app, worker, dan scheduler.
