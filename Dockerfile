@@ -1,6 +1,6 @@
 # ─── Stage 1: Node.js Asset Build ───────────────────────────
 # Node 24 LTS (Node 20 reached end of life in April 2026), pinned by tag and digest.
-FROM node:24.22.1-alpine@sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53 AS frontend
+FROM node:26.12.0-alpine@sha256:6f08a523443ddedf52941874c203475b0ad503e859ad70cb26ab8be9a517dbd5 AS frontend
 WORKDIR /app
 COPY package*.json vite.config.js tailwind.config.js postcss.config.js ./
 RUN npm ci --ignore-scripts
