@@ -264,6 +264,27 @@ class SecurityTest extends TestCase
         ]);
     }
 
+    public function test_comments_on_unpublished_content_return_404_and_are_not_stored(): void
+    {
+        foreach (['draft', 'archived'] as $status) {
+            $content = Content::create([
+                'title' => "Unpublished {$status}",
+                'slug' => "unpublished-{$status}",
+                'category' => 'blog',
+                'status' => $status,
+                'body' => 'Hidden body',
+            ]);
+
+            $this->post("/konten/{$content->id}/komentar", [
+                'author_name' => 'Probe',
+                'author_email' => "probe-{$status}@example.com",
+                'body' => 'Comment on an unpublished entry.',
+            ])->assertNotFound();
+
+            $this->assertDatabaseMissing('comments', ['content_id' => $content->id]);
+        }
+    }
+
     // ──────────────────────────────────────────────────────────────────────────
     // 3. XSS & HTMLPurifier Sanitization Tests
     // ──────────────────────────────────────────────────────────────────────────

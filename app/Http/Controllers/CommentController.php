@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\ContentStatus;
 use App\Http\Requests\Comment\StoreCommentRequest;
 use App\Models\Comment;
 use App\Models\Content;
@@ -14,6 +15,9 @@ class CommentController extends Controller
      */
     public function store(StoreCommentRequest $request, Content $content)
     {
+        // Only published content takes comments; anything else is 404, as on the detail page.
+        abort_if($content->status !== ContentStatus::Published->value, 404);
+
         // Silently ignore spam submissions to avoid revealing detection to bots
         if ($request->isSpam()) {
             return redirect()->back()->with(
