@@ -240,12 +240,6 @@
                         @endforeach
                     </div>
                 @endif
-
-                <!-- Scroll Indicator (Center Bottom) -->
-                <div class="absolute bottom-8 left-12 hidden md:flex flex-col items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.1em] text-brand-cream z-10 pointer-events-none opacity-70">
-                    <span>Scroll</span>
-                    <span class="h-8 w-px bg-brand-cream"></span>
-                </div>
             </section>
 
             <!-- Tentang Kami Section -->

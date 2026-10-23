@@ -23,6 +23,15 @@ class BannerHeroTest extends TestCase
         $response->assertSee('SELAMATKAN HUTAN &amp; AIR', false);
     }
 
+    public function test_hero_has_no_scroll_indicator(): void
+    {
+        $response = $this->get(route('home'));
+
+        $response->assertOk();
+        $response->assertSee('Hero Banner Slider');
+        $response->assertDontSee('<span>Scroll</span>', false);
+    }
+
     public function test_homepage_renders_database_banner_when_published(): void
     {
         Content::create([

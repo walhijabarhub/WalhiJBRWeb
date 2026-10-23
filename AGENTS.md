@@ -16,7 +16,7 @@ This document is the **primary entrypoint and operating manual** for modern AI c
 | :--- | :--- | :--- | :--- |
 | **Runtime** | PHP | `^8.3` (Production image: `php:8.4.27-fpm-alpine3.24`, digest-pinned; CI enforces `MIN_PHP_VERSION`) | Typed parameters, return types, enums. |
 | **Framework** | Laravel | `^13.8` (Locked: `13.38.0`) | Modern callable `bootstrap/app.php`. `composer.json` pins `config.platform.php` to the production PHP (8.4.27); change it together with the Dockerfile `FROM php:`. |
-| **Testing** | PHPUnit | `^12.5.12` | 307 automated tests (1333 assertions). |
+| **Testing** | PHPUnit | `^12.5.12` | 308 automated tests (1336 assertions). |
 | **Frontend Build** | Vite | `^8.0.0` (Installed: `8.1.3`) | `laravel-vite-plugin ^3.1`. |
 | **Styling** | Tailwind CSS | `3.4.19` | PostCSS pipeline, Neo-Brutalist design tokens. |
 | **Reactivity** | Alpine.js **CSP build** | `@alpinejs/csp ^3.17.5` | No `eval`; inline handlers replaced by `resources/js/csp-actions.js`. |
@@ -72,7 +72,7 @@ WalhiJBRWeb/
 │   └── console.php                # Schedule (reconcile 15 min, flush-views 5 min, prune monthly)
 ├── storage/app/private/documents/ # SEC-008 private documents
 ├── storage/app/public/uploads/    # Public media
-├── tests/Feature/                 # 307 tests; tests/TestCase.php disables Vite
+├── tests/Feature/                 # 308 tests; tests/TestCase.php disables Vite
 ├── deploy.sh                      # Production deploy with migrate-before-swap, health check, rollback
 ├── docker-backup.sh / docker-restore.sh
 └── docker-compose.prod.yml        # app, worker, scheduler, db, redis, web
@@ -215,7 +215,7 @@ Whenever making changes, an AI agent MUST uphold:
 
 ## 6. Testing Guide & Verification Protocol
 
-The application contains **307 automated tests (1333 assertions)**, all passing. CI runs them on SQLite and MySQL 8.0.
+The application contains **308 automated tests (1336 assertions)**, all passing. CI runs them on SQLite and MySQL 8.0.
 
 ### Running Tests:
 ```bash
