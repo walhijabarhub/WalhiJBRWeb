@@ -46,6 +46,19 @@ class DockerfileTest extends TestCase
     }
 
     /**
+     * Dependencies are resolved for the PHP release production runs. Without this,
+     * Composer (and Dependabot) resolve for the lowest PHP allowed by "php": "^8.3",
+     * which downgraded Symfony 8 to 7.4 and pulled in Guzzle 8 in a Laravel patch bump.
+     */
+    public function test_composer_platform_php_matches_the_docker_base_image(): void
+    {
+        preg_match('/^FROM php:(\d+\.\d+\.\d+)-fpm/m', file_get_contents(base_path('Dockerfile')), $m);
+        $composer = json_decode(file_get_contents(base_path('composer.json')), true);
+
+        $this->assertSame($m[1], $composer['config']['platform']['php'] ?? null);
+    }
+
+    /**
      * Compilers, headers and download tools are a virtual package removed after the
      * extensions are built, so they never reach the runtime image.
      */

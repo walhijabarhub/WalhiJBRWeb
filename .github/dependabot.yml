@@ -1,11 +1,21 @@
 version: 2
+# Every merge to production deploys (backup + maintenance window), so patch and minor
+# updates are grouped into one PR per ecosystem. Majors still arrive as separate PRs,
+# except the ones listed under ignore, which need a manual migration.
 updates:
+  # composer.json pins config.platform.php to the production PHP release, so the
+  # lock file is resolved for that PHP version (not the lowest one allowed by "php").
   - package-ecosystem: composer
     directory: "/"
     schedule:
       interval: weekly
     target-branch: production
     open-pull-requests-limit: 5
+    groups:
+      composer-minor-patch:
+        update-types:
+          - minor
+          - patch
 
   - package-ecosystem: npm
     directory: "/"
@@ -13,6 +23,21 @@ updates:
       interval: weekly
     target-branch: production
     open-pull-requests-limit: 5
+    groups:
+      npm-minor-patch:
+        update-types:
+          - minor
+          - patch
+    ignore:
+      # Tailwind 4 moves its PostCSS plugin to @tailwindcss/postcss and changes the
+      # configuration; lucide 1.x drops the brand icons used in resources/js/icons.js.
+      # Both are planned migrations with a visual check, not automatic bumps.
+      - dependency-name: tailwindcss
+        update-types:
+          - version-update:semver-major
+      - dependency-name: lucide
+        update-types:
+          - version-update:semver-major
 
   # One grouped PR for all actions: every merge to production deploys, so separate
   # PRs would mean one deploy (backup + maintenance window) per action.
@@ -31,7 +56,9 @@ updates:
   # (when Docker stops building the current one) is still a manual change.
   # Node majors are skipped: Dependabot cannot tell LTS from Current releases, so the
   # build stage moves to the next LTS line (Node 26 from late October 2026) by hand.
-  # Patch and minor updates of the pinned LTS line still arrive.
+  # PHP minors (8.4 -> 8.5) change the production runtime and need extension updates
+  # (phpredis), together with composer.json config.platform.php, so they are manual too.
+  # Patch updates of the pinned lines (PHP security releases) still arrive.
   - package-ecosystem: docker
     directory: "/"
     schedule:
@@ -41,3 +68,7 @@ updates:
       - dependency-name: node
         update-types:
           - version-update:semver-major
+      - dependency-name: php
+        update-types:
+          - version-update:semver-major
+          - version-update:semver-minor
