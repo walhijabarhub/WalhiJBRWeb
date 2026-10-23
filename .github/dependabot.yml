@@ -14,17 +14,30 @@ updates:
     target-branch: production
     open-pull-requests-limit: 5
 
+  # One grouped PR for all actions: every merge to production deploys, so separate
+  # PRs would mean one deploy (backup + maintenance window) per action.
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
       interval: monthly
     target-branch: production
+    groups:
+      github-actions:
+        patterns:
+          - "*"
 
   # The PHP base image is pinned by patch version + digest; weekly checks pick up PHP
   # security releases. Dependabot keeps the alpine3.y suffix, so moving to a newer Alpine
   # (when Docker stops building the current one) is still a manual change.
+  # Node majors are skipped: Dependabot cannot tell LTS from Current releases, so the
+  # build stage moves to the next LTS line (Node 26 from late October 2026) by hand.
+  # Patch and minor updates of the pinned LTS line still arrive.
   - package-ecosystem: docker
     directory: "/"
     schedule:
       interval: weekly
     target-branch: production
+    ignore:
+      - dependency-name: node
+        update-types:
+          - version-update:semver-major
