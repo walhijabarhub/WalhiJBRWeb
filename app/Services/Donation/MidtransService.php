@@ -86,7 +86,7 @@ class MidtransService
         }
 
         // The status API answers "not found" either with HTTP 404 or with HTTP 200 and status_code "404".
-        if ($response->status() === 404 || (string) $response->json('status_code') === '404') {
+        if ($response->status() === 404 || ($response->successful() && (string) $response->json('status_code') === '404')) {
             return null;
         }
 

@@ -33,6 +33,7 @@ class AuthenticatedSessionController extends Controller
             $request->session()->put(TwoFactorChallengeController::SESSION_KEY, [
                 'id' => $user->id,
                 'remember' => $request->boolean('remember'),
+                'password_hash' => Auth::guard('web')->hashPasswordForCookie($user->getAuthPassword()),
                 'at' => now()->getTimestamp(),
             ]);
 

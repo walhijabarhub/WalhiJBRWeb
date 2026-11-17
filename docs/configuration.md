@@ -90,9 +90,11 @@ Cara mengaktifkan ada di [operations.md](operations.md#6-mengaktifkan-email-smtp
 | `MIDTRANS_WEBHOOK_IPS` | daftar bawaan | | CIDR dipisah koma; hanya dipakai bila allowlist aktif. |
 | `MIDTRANS_TIMEOUT` / `MIDTRANS_CONNECT_TIMEOUT` | `10` / `5` | | Detik. |
 | `MIDTRANS_RECONCILE_AFTER_MINUTES` | `15` | | Donasi `pending` lebih tua dari ini dicek ulang. |
-| `MIDTRANS_EXPIRE_AFTER_HOURS` | `24` | | Donasi `pending` lebih tua dari ini dikedaluwarsakan. |
+| `MIDTRANS_EXPIRE_AFTER_HOURS` | `24` | | Batas umur kedaluwarsa donasi `pending` hanya jika Status API mengonfirmasi transaksi tidak ditemukan (`404`); bukan batas umur untuk transaksi yang masih pending di gateway. |
 
 URL notifikasi yang didaftarkan di dashboard Midtrans: `https://walhijabar.or.id/donasi/webhook`.
+
+Rekonsiliasi bersifat fail-safe: tanpa `MIDTRANS_SERVER_KEY`, perintah `walhi:donations-reconcile` dilewati dengan exit code gagal dan seluruh donasi `pending` dipertahankan (juga untuk mock lokal/testing). Pulihkan key dan muat ulang konfigurasi sesuai prosedur deploy, lalu jalankan kembali perintah agar pembayaran yang sudah settlement dapat disinkronkan. Timeout atau kegagalan API juga mempertahankan `pending`; jangan mengedaluwarsakan donasi secara manual hanya karena gateway sedang tidak tersedia.
 
 ## CAPTCHA (Cloudflare Turnstile)
 

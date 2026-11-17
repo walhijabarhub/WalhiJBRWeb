@@ -98,6 +98,8 @@ Berkas Unggahan Masuk
 ### Invariant & Aturan Operasional Storage:
 1. **Penyimpanan Dokumen Baru:**
    - Berkas dokumen (`pdf`, `doc`, `docx`, `xls`, `xlsx`) disimpan pada disk `'local'` (`storage/app/private/documents/`).
+   - Saat membuat maupun memperbarui konten, klasifikasi dokumen/gambar menggunakan MIME terverifikasi dari isi berkas, bukan ekstensi nama unggahan. PDF dengan nama berekstensi nonstandar seperti `.bin` tetap disimpan privat sebagai `.pdf`; ekstensi berkas tersimpan ditentukan dari MIME oleh `store()`.
+   - Hanya MIME gambar yang lolos validasi masuk disk publik. Penolakan ekstensi berbahaya dan pemeriksaan kode PHP tetap berlaku, termasuk bila isi berkas memiliki MIME yang diizinkan.
    - Berkas ini **tidak dapat diakses langsung** melalui URL statis web server `/storage/...`.
 2. **Otorisasi Unduhan Dokumen:**
    - Route unduhan: `GET /dokumen/{content:slug}/unduh` via `DocumentDownloadController`.
@@ -166,11 +168,13 @@ Urutan pemeriksaan di `DonationController::webhook`:
 
 ### C. Rekonsiliasi Otomatis
 - `walhi:donations-reconcile` (tiap 15 menit) mengecek donasi `pending` yang lebih tua dari `MIDTRANS_RECONCILE_AFTER_MINUTES` (default 15) ke Status API, untuk menutup notifikasi yang hilang.
-- Donasi yang masih `pending` setelah `MIDTRANS_EXPIRE_AFTER_HOURS` (default 24) ditandai `expired`.
-- Panggilan HTTP ke Midtrans memakai timeout (`MIDTRANS_TIMEOUT`, `MIDTRANS_CONNECT_TIMEOUT`) dan retry terbatas.
+- Kedaluwarsa berdasarkan umur (`MIDTRANS_EXPIRE_AFTER_HOURS`, default 24) hanya boleh dilakukan setelah Status API mengonfirmasi transaksi tidak ditemukan (HTTP `404`, atau respons sukses dengan `status_code=404`). Status gateway yang masih `pending` tetap dipertahankan walaupun melewati batas umur; status terminal dari gateway tetap mengikuti state machine.
+- Bila `MIDTRANS_SERVER_KEY` kosong/tidak dikonfigurasi, perintah dilewati dengan exit code gagal dan pesan untuk memeriksa key serta memuat ulang konfigurasi (tanpa menampilkan rahasia). Tidak ada donasi yang dimutasi. Setelah konfigurasi pulih, donasi `pending` bisa disinkronkan kembali, termasuk menjadi `success` bila sudah settlement.
+- Timeout, kegagalan koneksi, respons HTTP gagal selain `404` (termasuk yang memuat `status_code=404`), atau respons tidak valid bukan bukti transaksi tidak ditemukan: donasi tetap `pending` dan perintah melaporkan kegagalan.
+- Panggilan HTTP ke Midtrans memakai timeout (`MIDTRANS_TIMEOUT`, `MIDTRANS_CONNECT_TIMEOUT`). Status API dicoba sekali per pemanggilan; rekonsiliasi berikutnya mencoba lagi.
 
 ### D. Simulasi Pembayaran (Mock Payment)
-Route `/donasi/mock-payment-status` **hanya terdaftar** saat environment `local` atau `testing`. Route ini tidak ada di produksi.
+Route `/donasi/mock-payment-status` **hanya terdaftar** saat environment `local` atau `testing`. Route ini tidak ada di produksi. Rekonsiliasi tanpa gateway juga tidak mengedaluwarsakan donasi mock di lokal/testing; tidak ada fallback berbasis umur saja, termasuk di produksi.
 
 ---
 
@@ -203,7 +207,13 @@ Aplikasi menerapkan 3 peran pengguna (`App\Enums\UserRole`):
 - Reset oleh pengelola server: `php artisan walhi:reset-2fa email@domain` (tercatat di audit log).
 - Aktivasi, penonaktifan, dan pembuatan ulang recovery code dicatat di audit log.
 
-### D. Pembuatan Akun
+### D. Pencabutan Sesi setelah Perubahan Password
+- Reset password mencabut seluruh sesi login lama dan cookie *remember me*. Perubahan password dengan `current_password` yang valid mempertahankan sesi perangkat saat ini (ID sesi dirotasi), tetapi mencabut sesi perangkat lain serta seluruh cookie *remember me* lama.
+- Middleware sesi web memeriksa hash password pada setiap permintaan; berlaku untuk Redis produksi maupun driver file/database, tanpa bergantung pada penghapusan tabel `sessions`. Sesi lama ditolak pada permintaan berikutnya; permintaan yang sudah berjalan tidak dibatalkan.
+- Hash diikat saat login selesai. Sesi login sebelum penerapan middleware yang belum memiliki `password_hash_web` wajib login ulang (tidak boleh otomatis mengadopsi hash terbaru). Login melalui cookie *remember me* tetap harus lolos pemeriksaan cookie Laravel.
+- Tantangan 2FA yang masih tertunda terikat pada hash saat pemeriksaan password dan tidak dapat diselesaikan setelah password berubah. Permintaan tamu tetap dapat mengakses halaman publik dan alur lupa/reset password.
+
+### E. Pembuatan Akun
 - Tidak ada registrasi publik. Akun dibuat dengan `php artisan walhi:create-admin` (password lewat prompt tersembunyi, tanpa opsi `--password`).
 - `AdminUserSeeder` aman diulang: tidak menimpa password yang sudah ada kecuali `FORCE_ADMIN_PASSWORD_RESET=true`; akun tanpa password terkonfigurasi mendapat password acak yang tidak ditampilkan beserta tautan reset.
 
