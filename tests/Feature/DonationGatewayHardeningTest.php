@@ -9,6 +9,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 /**
@@ -232,17 +233,141 @@ class DonationGatewayHardeningTest extends TestCase
         $this->assertSame('pending', $donation->fresh()->status);
     }
 
-    public function test_reconcile_without_gateway_only_expires_stale_donations(): void
+    #[DataProvider('unconfiguredGatewayCases')]
+    public function test_reconcile_without_gateway_preserves_pending_donations(string $environment, ?string $serverKey): void
     {
+        $this->app['env'] = $environment;
+        config(['midtrans.server_key' => $serverKey]);
+        Http::fake();
+        $stale = $this->donation();
+        $recent = $this->donation();
+        $mock = $this->donation(['snap_token' => 'MOCK-SNAP-TEST']);
+        $stale->forceFill(['created_at' => now()->subDays(2)])->save();
+        $recent->forceFill(['created_at' => now()->subHour()])->save();
+        $mock->forceFill(['created_at' => now()->subDays(2)])->save();
+        $before = Donation::orderBy('id')->get()->toArray();
+
+        $this->artisan('walhi:donations-reconcile')
+            ->expectsOutputToContain('Periksa MIDTRANS_SERVER_KEY')
+            ->assertFailed();
+
+        $this->assertSame($before, Donation::orderBy('id')->get()->toArray());
+        Http::assertNothingSent();
+    }
+
+    public static function unconfiguredGatewayCases(): array
+    {
+        return [
+            'production missing key' => ['production', null],
+            'production empty key' => ['production', ''],
+            'staging missing key' => ['staging', null],
+            'local mock mode' => ['local', null],
+            'testing mock mode' => ['testing', null],
+        ];
+    }
+
+    public function test_reconcile_settles_old_pending_donation_after_gateway_configuration_is_restored(): void
+    {
+        $this->app['env'] = 'production';
         config(['midtrans.server_key' => null]);
+        $this->fakeStatus(['status_code' => '200', 'transaction_status' => 'settlement', 'gross_amount' => '50000.00', 'payment_type' => 'qris']);
+        $donation = $this->donation();
+        $donation->forceFill(['created_at' => now()->subDays(2)])->save();
+
+        $this->artisan('walhi:donations-reconcile')->assertFailed();
+
+        $this->assertSame('pending', $donation->fresh()->status);
+        Http::assertNothingSent();
+
+        config(['midtrans.server_key' => self::SERVER_KEY]);
+
+        $this->artisan('walhi:donations-reconcile')->assertSuccessful();
+
+        $this->assertSame('success', $donation->fresh()->status);
+        $this->assertSame('qris', $donation->fresh()->payment_type);
+        Http::assertSentCount(1);
+    }
+
+    public function test_reconcile_connection_failure_preserves_old_pending_donation(): void
+    {
+        $this->app['env'] = 'production';
+        $donation = $this->donation();
+        $donation->forceFill(['created_at' => now()->subDays(2)])->save();
+        $attempts = 0;
+        Http::fake(function () use (&$attempts) {
+            $attempts++;
+            throw new ConnectionException('timeout');
+        });
+
+        $this->artisan('walhi:donations-reconcile')
+            ->expectsOutputToContain('1 gagal')
+            ->assertFailed();
+
+        $this->assertSame('pending', $donation->fresh()->status);
+        $this->assertSame(1, $attempts);
+    }
+
+    #[DataProvider('unavailableStatusCases')]
+    public function test_reconcile_api_failure_preserves_old_pending_donation(int $httpStatus, array $body): void
+    {
+        $this->app['env'] = 'production';
+        $donation = $this->donation();
+        $donation->forceFill(['created_at' => now()->subDays(2)])->save();
+        $this->fakeStatus($body, $httpStatus);
+
+        $this->artisan('walhi:donations-reconcile')
+            ->expectsOutputToContain('1 gagal')
+            ->assertFailed();
+
+        $this->assertSame('pending', $donation->fresh()->status);
+        Http::assertSentCount(1);
+    }
+
+    public static function unavailableStatusCases(): array
+    {
+        return [
+            'unauthorized' => [401, ['status_code' => '401']],
+            'rate limited' => [429, ['status_code' => '429']],
+            'server error' => [500, ['status_code' => '500']],
+            'unavailable with misleading not-found body' => [503, ['status_code' => '404']],
+            'invalid success body' => [200, []],
+        ];
+    }
+
+    #[DataProvider('notFoundStatusCases')]
+    public function test_reconcile_authoritative_not_found_only_expires_old_pending_donations(int $httpStatus): void
+    {
+        $this->app['env'] = 'production';
         $stale = $this->donation();
         $recent = $this->donation();
         $stale->forceFill(['created_at' => now()->subDays(2)])->save();
         $recent->forceFill(['created_at' => now()->subHour()])->save();
+        $this->fakeStatus(['status_code' => '404', 'status_message' => "Transaction doesn't exist."], $httpStatus);
 
         $this->artisan('walhi:donations-reconcile')->assertSuccessful();
 
         $this->assertSame('expired', $stale->fresh()->status);
         $this->assertSame('pending', $recent->fresh()->status);
+        Http::assertSentCount(2);
+    }
+
+    public static function notFoundStatusCases(): array
+    {
+        return [
+            'HTTP not found' => [404],
+            'Midtrans not-found status in successful response' => [200],
+        ];
+    }
+
+    public function test_reconcile_does_not_expire_old_donation_still_pending_at_gateway(): void
+    {
+        $this->app['env'] = 'production';
+        $donation = $this->donation();
+        $donation->forceFill(['created_at' => now()->subDays(2)])->save();
+        $this->fakeStatus(['status_code' => '201', 'transaction_status' => 'pending', 'gross_amount' => '50000.00']);
+
+        $this->artisan('walhi:donations-reconcile')->assertSuccessful();
+
+        $this->assertSame('pending', $donation->fresh()->status);
     }
 }

@@ -86,7 +86,47 @@ tail -n 50 /var/log/walhi_backup.log     # hasil cron harian
 ./docker-restore.sh /var/backups/walhi/walhi_prod_mysql_YYYYMMDD_HHMMSS.sql.gz \
                     /var/backups/walhi/walhi_prod_files_YYYYMMDD_HHMMSS.tar.gz
 ```
-Restore meminta konfirmasi `restore`, mengaktifkan maintenance mode, lalu mematikannya setelah selesai.
+### Restore produksi: fail-closed
+
+Restore meminta konfirmasi `restore`. **Jangan jalankan bersamaan dengan deploy, restore lain, atau pengelolaan container manual.** Pastikan backup DB dan berkas berasal dari snapshot yang sama; verifikasi checksum dan uji dahulu dengan `docker-restore-test.sh`. Restore tidak membatalkan impor SQL/ekstraksi yang sudah berjalan bila tahap berikutnya gagal.
+
+Urutan pengamanan `docker-restore.sh`:
+
+1. Periksa arsip gzip, status maintenance Laravel (driver dari konfigurasi aktif), serta keadaan container nginx/scheduler/worker. Container standar harus ada; container yang semula berhenti tidak akan dinyalakan otomatis. Nama dapat ditimpa lewat `APP_CONTAINER`, `DB_CONTAINER`, `WEB_CONTAINER`, `SCHEDULER_CONTAINER`, dan `WORKER_CONTAINER`.
+2. `artisan down` **harus berhasil** dan maintenance harus terverifikasi sebelum mutasi data. Hentikan nginx, scheduler, dan worker yang berjalan (grace period 60 detik), lalu pastikan berhenti agar request/job yang sedang berjalan tidak menulis selama restore. Selama ini situs mungkin tidak dapat diakses, bukan menampilkan halaman 503.
+3. Impor database, ekstrak berkas jika diberikan, perbaiki kepemilikan, lalu bersihkan cache. **Cache Redis dapat menghapus flag maintenance**, jadi nginx tetap berhenti sampai `artisan down` ditegakkan dan diverifikasi ulang. Cache clear juga menghapus cache/rate limit; tinjau dampak pada antrean/sesi bila konfigurasi Redis menempatkannya pada logical database yang sama.
+4. Jalankan `/up` melalui HTTP kernel Laravel di dalam container (harus HTTP 200, termasuk pemeriksaan database dan cache), tanpa membuka trafik publik. Ini bukan pengujian TLS/nginx maupun bukti bahwa seluruh isi backup lengkap.
+5. Hanya jika semua tahap lulus dan situs semula **bukan** maintenance: jalankan `artisan up`, verifikasi statusnya, mulai ulang background container yang semula berjalan, lalu nginx paling akhir. Jika situs semula sudah maintenance, **tidak ada `artisan up`**; nginx yang semula berjalan dipulihkan untuk melayani maintenance, tetapi worker/scheduler tetap berhenti sampai operator memutuskan aman. Payload/secret maintenance lama tidak dipertahankan: `down` memakai halaman 503 tanpa secret.
+
+**Bila gagal:** exit status asli dipertahankan, termasuk kegagalan `artisan up`. Script tidak menjalankan `up` pada kegagalan tahap sebelumnya. Setelah maintenance dicoba, script berusaha menghentikan kembali ingress/background container dan menegakkan `down` (termasuk bila cache clear atau `up` gagal sebagian). Kegagalan pengamanan juga dicetak: bila Docker/Redis tidak dapat dihubungi, maintenance tidak dapat dijamin; isolasi trafik dan proses secara manual. Tidak ada pemulihan data atau pembukaan situs otomatis.
+
+### Pemulihan setelah restore gagal / situs semula maintenance
+
+1. **Jangan langsung menjalankan `artisan up` atau deploy.** Baca tahap gagal dan exit code di output. Pastikan tidak ada trafik/job yang menulis; periksa log, ruang disk, izin berkas, serta koneksi DB/Redis:
+   ```bash
+   dc stop web scheduler worker
+   dc exec app php artisan down --render="errors::503"
+   dc logs --tail=100 app db redis worker scheduler
+   ```
+   Jika perintah stop/down gagal, isolasi ingress dan background writer dari host sebelum melanjutkan. Jangan menganggap impor SQL parsial dapat dibatalkan dengan rollback kode.
+2. Perbaiki penyebabnya dan pulihkan kembali pasangan backup yang konsisten dengan `docker-restore.sh`. Karena situs kini maintenance, restore yang berhasil **tetap tidak membuka situs**. Pastikan dokumen/media dan data penting benar; periksa juga antrean Redis yang mungkin masih merujuk data sebelum restore (termasuk efek samping email/pembayaran). Jangan menghapus seluruh antrean secara membabi buta.
+3. Setelah restore dan pemeriksaan data lulus (termasuk health check internal script), hidupkan nginx dalam maintenance dan periksa nginx serta PHP-FPM:
+   ```bash
+   dc start web
+   dc exec web wget -q -O /dev/null http://127.0.0.1/nginx-health
+   docker inspect -f '{{.State.Health.Status}}' walhi_prod_app  # harus healthy
+   ```
+   Jika gagal/tidak healthy, pertahankan maintenance dan perbaiki; jangan lanjut ke `up`. Pemeriksaan internal script memakai HTTP kernel langsung; URL publik dapat tetap mengembalikan 503 karena halaman maintenance pre-render (`--render` di `public/index.php`), sehingga jangan menuntut `/up` publik 200 sebelum membuka maintenance.
+4. Hanya setelah semua pemeriksaan lulus dan operator menyetujui pembukaan:
+   ```bash
+   # Jalankan hanya jika antrean sudah dinilai aman:
+   dc exec app php artisan up && \
+     curl -fsS https://www.walhijabar.or.id/up && \
+     dc start worker scheduler
+   ```
+   Mulai hanya container yang memang semestinya berjalan sebelum restore. Jika pembukaan/health check gagal, jalankan kembali `dc stop web scheduler worker` dan `dc exec app php artisan down --render="errors::503"`; pertahankan isolasi sampai pulih.
+
+Regresi script tanpa daemon Docker (semua pemanggilan Docker dimock lewat PATH terisolasi): `bash tests/restore-script-test.sh`, juga dijalankan oleh `php artisan test --filter=RestoreScriptTest` dalam suite PHPUnit.
 
 - Snapshot sebelum setiap deploy bernama `walhi_predeploy_*`.
 - Setiap backup punya checksum `<berkas>.sha256`.
@@ -119,7 +159,7 @@ Ganti password akun itu dengan password acak yang tidak disimpan siapa pun, lalu
 dc exec app php artisan walhi:create-admin --name="Nama Lengkap" --email=nama@walhijabar.or.id --role=<role-sekarang>
 dc exec app php artisan walhi:reset-2fa nama@walhijabar.or.id
 ```
-Sesi yang sedang terbuka berakhir setelah tidak aktif selama `SESSION_LIFETIME` (120 menit). Karena 2FA juga di-reset, login baru dengan password lama tidak mungkin lagi.
+Perubahan password mencabut sesi lama pada permintaan berikutnya melalui pemeriksaan hash password, tanpa menunggu `SESSION_LIFETIME`. Permintaan yang sudah berjalan tidak dibatalkan. Karena 2FA juga di-reset, login baru dengan password lama tidak mungkin lagi. Saat pertama kali menerapkan middleware ini, sesi lama tanpa `password_hash_web` diminta login ulang.
 
 ### Melihat jejak audit
 ```bash

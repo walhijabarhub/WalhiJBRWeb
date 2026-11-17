@@ -7,7 +7,7 @@ Dokumen ini memandu pengembang dan AI coding agents dalam menjalankan, memelihar
 ## 1. Ikhtisar Test Suite
 
 - **Framework:** PHPUnit 12 (`php artisan test`)
-- **Total:** **308 test, 1336 assertion**, semuanya lulus (per Oktober 2026)
+- **Total:** **349 test, 1666 assertion**, lulus pada SQLite / PHP 8.5.5 (17 November 2026). Validasi PHP 8.4 dan MySQL tetap dilakukan melalui CI.
 - **Cakupan:** autentikasi & 2FA, RBAC, manajemen konten, keamanan konten & CSP, dokumen privat, donasi & Midtrans, audit log, cache & pencarian, newsletter, retensi data, CAPTCHA, proxy tepercaya, SEO.
 
 Perbarui angka di atas (dan di `AGENTS.md`) bila jumlah test berubah signifikan.
@@ -55,8 +55,8 @@ docker rm -f walhi-test-mysql
 | `tests/Feature/QaAuditRegressionTest.php` | Regresi QA: halaman kontak/pengaduan/privasi, unduhan regulasi & laporan, navigasi, typo editorial, domain lama. | 17 |
 | `tests/Feature/ContentSecurityHardeningTest.php` | `SafeUrl`, sanitasi body saat disimpan, payload modal edit, CSP tanpa `unsafe-inline`, tidak ada handler inline, editor dilarang di kategori sensitif. | 16 |
 | `tests/Feature/AdminTest.php` | Dashboard admin, listing, filter, toggle status, hapus konten. | 14 |
-| `tests/Feature/DonationGatewayHardeningTest.php` | `fraud_status`, konfirmasi Status API, retry Snap, rekonsiliasi & kedaluwarsa, allowlist IP. | 13 |
-| `tests/Feature/DocumentStorageTest.php` | Dokumen privat (SEC-008), otorisasi unduhan, anti open-redirect, injeksi header, file legacy, command migrasi. | 12 |
+| `tests/Feature/DonationGatewayHardeningTest.php` | `fraud_status`, konfirmasi Status API, retry Snap, rekonsiliasi fail-safe tanpa key/saat API gagal, pemulihan konfigurasi, kedaluwarsa hanya setelah transaksi tidak ditemukan, allowlist IP. | 27 |
+| `tests/Feature/DocumentStorageTest.php` | Dokumen privat (SEC-008), klasifikasi MIME nyata meskipun nama berekstensi nonstandar (create/update), gambar tetap publik, penolakan ekstensi/konten PHP, otorisasi unduhan, anti open-redirect, injeksi header, file legacy, command migrasi. | 24 |
 | `tests/Feature/RbacMatrixTest.php` | Matriks izin Admin/Editor/Subscriber, kategori sensitif, aksi hapus, kategori arbitrer → 404 (SEC-007/010). | 11 |
 | `tests/Feature/SEOAndResponsiveTest.php` | Halaman statis, meta OpenGraph/Twitter, `sitemap.xml`, `robots.txt` (sitemap ke host www), template nginx HTTPS (domain tanpa www → 301 ke www), cache 1 tahun hanya untuk `/build/`. | 14 |
 | `tests/Feature/CanonicalHostSignedLinkTest.php` | Link konfirmasi newsletter (dibuat worker dari `APP_URL`) tetap valid setelah redirect domain tanpa www → www; link lama tetap diterima; link tanpa tanda tangan, diubah, atau kedaluwarsa ditolak. | 4 |
@@ -68,6 +68,8 @@ docker rm -f walhi-test-mysql
 | `tests/Feature/TrustedProxyTest.php` | Header `X-Forwarded-*` dari klien diabaikan tanpa proxy tepercaya. | 2 |
 | `tests/Feature/StorageIntegrityAuditTest.php` | Audit Oktober 2026: berkas bersama tidak ikut terhapus, `image_url` tidak bisa menunjuk dokumen privat lain, nginx memblokir `/storage/documents/`, migrasi dokumen legacy aman (dry-run, checksum), pratinjau draf kategori sensitif, berkas lampiran tetap ada saat soft-delete dan dihapus saat force delete (AUD-12). | 15 |
 | `tests/Feature/MissingDocumentDisplayTest.php` | Dokumen yang berkasnya tidak ada di disk menampilkan tombol nonaktif "Dokumen belum tersedia" (daftar & detail), bukan tautan 404; berkas yang ada dan tautan eksternal tetap aktif; PDF tidak dirender sebagai gambar. | 7 |
+| `tests/Feature/Auth/PasswordSessionRevocationTest.php` | Dua browser dengan sesi file: reset/ganti password mencabut sesi lama dan remember cookie, rotasi sesi saat ini, sesi legacy, concurrent late save, dan challenge 2FA tertunda. | 14 |
+| `tests/Feature/RestoreScriptTest.php` | Menjalankan 19 skenario shell dengan Docker mock: kegagalan restore tetap fail-closed, pemeriksaan maintenance/health, dan pemulihan keadaan container. | 1 |
 | `tests/Feature/Auth/*` (lainnya) | Login `/portal-jabar`, reset & konfirmasi password, update password, verifikasi email, registrasi nonaktif. | 21 |
 | `tests/Feature/PublicPagesSmokeTest.php` | Smoke test: semua halaman publik (termasuk sitemap & robots) tampil 200 pada database kosong; `favicon.ico` tidak kosong. | 17 |
 | `tests/Feature/ImageOptimizerTest.php` | Gambar unggahan diperkecil ke maks. 1920 px (JPEG/PNG, sampul & editor); GIF, berkas rusak, dan gambar di atas batas piksel tidak diubah. | 7 |

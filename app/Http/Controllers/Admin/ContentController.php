@@ -148,8 +148,13 @@ class ContentController extends Controller
         // Image / document upload or URL
         if ($request->hasFile('image')) {
             $file = $request->file('image');
-            $ext = strtolower($file->getClientOriginalExtension());
-            $isDoc = in_array($ext, ['pdf', 'doc', 'docx', 'xls', 'xlsx'], true);
+            $isDoc = in_array($file->getMimeType(), [
+                'application/pdf',
+                'application/msword',
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                'application/vnd.ms-excel',
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            ], true);
             if ($isDoc) {
                 // Store documents in private storage (local disk -> storage/app/private/documents/)
                 $path = $file->store('documents', 'local');
@@ -205,8 +210,13 @@ class ContentController extends Controller
         if ($request->hasFile('image')) {
             ContentAttachment::delete($content);
             $file = $request->file('image');
-            $ext = strtolower($file->getClientOriginalExtension());
-            $isDoc = in_array($ext, ['pdf', 'doc', 'docx', 'xls', 'xlsx'], true);
+            $isDoc = in_array($file->getMimeType(), [
+                'application/pdf',
+                'application/msword',
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                'application/vnd.ms-excel',
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            ], true);
             if ($isDoc) {
                 // Store documents in private storage (local disk -> storage/app/private/documents/)
                 $path = $file->store('documents', 'local');

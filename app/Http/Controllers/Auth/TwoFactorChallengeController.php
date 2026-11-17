@@ -89,6 +89,14 @@ class TwoFactorChallengeController extends Controller
 
         $user = User::find($pending['id'] ?? null);
 
-        return $user && $user->hasTwoFactorEnabled() ? $user : null;
+        if (! $user || ! $user->hasTwoFactorEnabled()
+            || ! is_string($pending['password_hash'] ?? null)
+            || ! hash_equals(Auth::guard('web')->hashPasswordForCookie($user->getAuthPassword()), $pending['password_hash'])) {
+            $request->session()->forget(self::SESSION_KEY);
+
+            return null;
+        }
+
+        return $user;
     }
 }

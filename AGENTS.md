@@ -16,7 +16,7 @@ This document is the **primary entrypoint and operating manual** for modern AI c
 | :--- | :--- | :--- | :--- |
 | **Runtime** | PHP | `^8.3` (Production image: `php:8.4.27-fpm-alpine3.24`, digest-pinned; CI enforces `MIN_PHP_VERSION`) | Typed parameters, return types, enums. |
 | **Framework** | Laravel | `^13.8` (Locked: `13.38.0`) | Modern callable `bootstrap/app.php`. `composer.json` pins `config.platform.php` to the production PHP (8.4.27); change it together with the Dockerfile `FROM php:`. |
-| **Testing** | PHPUnit | `^12.5.12` | 308 automated tests (1336 assertions). |
+| **Testing** | PHPUnit | `^12.5.12` | 349 automated tests (1666 assertions). |
 | **Frontend Build** | Vite | `^8.0.0` (Installed: `8.1.3`) | `laravel-vite-plugin ^3.1`. |
 | **Styling** | Tailwind CSS | `3.4.19` | PostCSS pipeline, Neo-Brutalist design tokens. |
 | **Reactivity** | Alpine.js **CSP build** | `@alpinejs/csp ^3.17.5` | No `eval`; inline handlers replaced by `resources/js/csp-actions.js`. |
@@ -72,7 +72,7 @@ WalhiJBRWeb/
 │   └── console.php                # Schedule (reconcile 15 min, flush-views 5 min, prune monthly)
 ├── storage/app/private/documents/ # SEC-008 private documents
 ├── storage/app/public/uploads/    # Public media
-├── tests/Feature/                 # 308 tests; tests/TestCase.php disables Vite
+├── tests/Feature/                 # 349 tests; tests/TestCase.php disables Vite
 ├── deploy.sh                      # Production deploy with migrate-before-swap, health check, rollback
 ├── docker-backup.sh / docker-restore.sh
 └── docker-compose.prod.yml        # app, worker, scheduler, db, redis, web
@@ -161,7 +161,7 @@ An AI agent must preserve the following business rules:
    - Gross amount in webhook payload MUST match the stored database amount.
    - The signature does not cover `transaction_status`/`fraud_status`, so the final status is fetched from the Midtrans Status API (`MIDTRANS_VERIFY_WEBHOOK_STATUS=true`). Status API unreachable → `503` so Midtrans retries.
    - Status mapping goes only through `DonationStatus::fromMidtrans($status, $fraudStatus)` (`capture`+`challenge` stays `pending`, `fraud_status=deny` → `failed`).
-4. **Reconciliation:** `walhi:donations-reconcile` (every 15 min) checks stale `pending` donations against the Status API and expires them after 24 h.
+4. **Reconciliation:** `walhi:donations-reconcile` (every 15 min) checks stale `pending` donations against the Status API. Age-based expiry after 24 h requires an authoritative not-found response; missing gateway configuration or API failures preserve pending donations and report failure.
 
 ### D. Authentication & Administration
 1. **Custom Login Path:**
@@ -215,7 +215,7 @@ Whenever making changes, an AI agent MUST uphold:
 
 ## 6. Testing Guide & Verification Protocol
 
-The application contains **308 automated tests (1336 assertions)**, all passing. CI runs them on SQLite and MySQL 8.0.
+The application contains **349 automated tests (1666 assertions)**, verified passing locally on SQLite / PHP 8.5.5 on 17 November 2026. CI also runs them on MySQL 8.0 and the production PHP version.
 
 ### Running Tests:
 ```bash
@@ -245,6 +245,8 @@ php artisan test --filter=TurnstileCaptchaTest
 - `tests/Feature/AdminTest.php`: Admin CRUD operations, filters, status toggling.
 - `tests/Feature/Auth/*`: Authentication, password reset, confirmation, and rate limiting.
 - `tests/Feature/Auth/AuthHardeningTest.php`: exact login matching, per-account throttle, 2FA, safe seeder, last-admin protection.
+- `tests/Feature/Auth/PasswordSessionRevocationTest.php`: multi-device password reset/change, legacy sessions, remember cookies, late session saves, and pending 2FA invalidation.
+- `tests/Feature/RestoreScriptTest.php`: fail-closed restore with 19 isolated mock-Docker shell scenarios.
 - `tests/Feature/ContentSecurityHardeningTest.php`: SafeUrl, sanitise-on-store, strict CSP, no inline handlers.
 - `tests/Feature/DonationGatewayHardeningTest.php`: fraud_status, Status API confirmation, reconciliation, IP allowlist.
 - `tests/Feature/LoggingPerformanceDataTest.php`: audit_logs, FULLTEXT search, caching, view buffer, double opt-in, data retention.

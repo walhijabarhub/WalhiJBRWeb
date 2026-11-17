@@ -23,17 +23,24 @@ class ReconcileDonations extends Command
     {
         $reconcileBefore = now()->subMinutes((int) config('midtrans.reconcile_after_minutes', 15));
         $expireBefore = now()->subHours((int) config('midtrans.expire_after_hours', 24));
-        $gateway = $donations->gatewayConfigured();
+        if (! $donations->gatewayConfigured()) {
+            $message = 'Rekonsiliasi donasi dilewati: Midtrans belum dikonfigurasi. Periksa MIDTRANS_SERVER_KEY dan muat ulang konfigurasi sebelum mencoba lagi; semua donasi pending dipertahankan.';
+            $this->error($message);
+            Log::warning($message);
+
+            return self::FAILURE;
+        }
 
         $stats = ['updated' => 0, 'expired' => 0, 'unchanged' => 0, 'mismatch' => 0, 'errors' => 0];
 
         Donation::where('status', DonationStatus::Pending->value)
             ->where('created_at', '<=', $reconcileBefore)
             ->orderBy('id')
-            ->chunkById(100, function ($pending) use ($donations, $gateway, $expireBefore, &$stats) {
+            ->chunkById(100, function ($pending) use ($donations, $expireBefore, &$stats) {
                 foreach ($pending as $donation) {
                     try {
-                        $result = $gateway ? $donations->syncFromGateway($donation) : null;
+                        // Only an authoritative not-found result permits age-based expiry.
+                        $result = $donations->syncFromGateway($donation);
 
                         if ($result === true) {
                             $stats['updated']++;
