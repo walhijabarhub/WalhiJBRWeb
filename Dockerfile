@@ -14,7 +14,7 @@ RUN npm run build
 # missing the fixes for CVE-2026-109618/109619 (8.4.27). CI refuses images older than
 # MIN_PHP_VERSION. To update: pick the newest php:8.4.x-fpm-alpine3.y tag, copy its
 # index digest (docker buildx imagetools inspect <tag>), and change both together.
-FROM php:8.4.27-fpm-alpine3.24@sha256:6b83fd767e1902ae4c89fe11f929f02e78bf769215c703060ac8a7c4be672c8c
+FROM php:8.4.28RC1-fpm-alpine3.24@sha256:9a49a9cba52f34ffe52ad70bef56e716fc333a04ba6a93d205f7c96fab9ffdef
 
 # phpredis is built from its GitHub release tarball (checksum pinned) instead of
 # "pecl install": pecl.php.net outages broke image builds and therefore deploys.
